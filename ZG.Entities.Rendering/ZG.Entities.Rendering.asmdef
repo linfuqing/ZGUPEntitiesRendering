@@ -1,0 +1,40 @@
+{
+    "name": "ZG.Entities.Rendering",
+    "rootNamespace": "",
+    "references": [
+        "GUID:734d92eba21c94caba915361bd5ac177",
+        "GUID:8819f35a0fc84499b990e90a4ca1911f",
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:8a2eafa29b15f444eb6d74f94a930e1d",
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:e04e6c86a9f3947eb95fded39f9e60cc",
+        "GUID:a5baed0c9693541a5bd947d336ec7659",
+        "GUID:44dcb2bf5b9be4b5aa76674c8edcd1d5",
+        "GUID:7a450cf7ca9694b5a8bfa3fd83ec635a",
+        "GUID:beff58cf91ef5dc4f8939ec84aca2109",
+        "GUID:d1080dc0d8432164aa6d65c2e12ef977",
+        "GUID:ec7fe584e4042e7498ec099a3e6535e9",
+        "GUID:111b9f15fc71a104bb3dac19acd4ca86"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "8.9.9",
+            "define": "URP_9_0_0_OR_NEWER"
+        },
+        {
+            "name": "com.unity.rendering.hybrid",
+            "expression": "0.50.0-preview.44",
+            "define": "HYBRID_0_50_0_OR_NEWER"
+        }
+    ],
+    "noEngineReferences": false
+}

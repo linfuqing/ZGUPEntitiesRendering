@@ -1,0 +1,21 @@
+{
+    "name": "ZG.Entities.Rendering.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Unity.Rendering.Hybrid",
+        "ZG.Entities.Rendering",
+        "ZG.Entities",
+        "ZG.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
