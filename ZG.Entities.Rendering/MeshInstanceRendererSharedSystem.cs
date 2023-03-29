@@ -284,6 +284,12 @@ namespace ZG
 
                 foreach (var batchMeshID in batchMeshIDs)
                     __graphicsSystem.UnregisterMesh(batchMeshID.Value);
+
+                foreach (var batchMaterialID in __batchMaterialIDsToRemove)
+                    __graphicsSystem.UnregisterMaterial(batchMaterialID.Value);
+
+                foreach (var batchMeshID in __batchMeshIDsToRemove)
+                    __graphicsSystem.UnregisterMesh(batchMeshID.Value);
             }
 
             batchMaterialIDs.Dispose();
