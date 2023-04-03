@@ -54,13 +54,17 @@ namespace ZG
 
         public HybridRendererCullingResult Cull(in ArchetypeChunk chunk)
         {
+            if (!chunk.Has(renderFilterSettingsType))
+                return HybridRendererCullingResult.Invsible;
+
             float distanceSq = definition.Value.values[chunk.GetSharedComponent(renderFilterSettingsType).Layer];
             if (distanceSq <= math.FLT_MIN_NORMAL)
                 distanceSq = farClipPlaneSq;
 
             if (distanceSq > math.FLT_MIN_NORMAL)
             {
-                if (distanceSq < chunk.GetChunkComponentData(ref chunkWorldRenderBoundType).Value.DistanceSq(cameraPosition))
+                if (!chunk.Has(ref chunkWorldRenderBoundType) || 
+                    distanceSq < chunk.GetChunkComponentData(ref chunkWorldRenderBoundType).Value.DistanceSq(cameraPosition))
                     return HybridRendererCullingResult.Invsible;
 
                 if (!chunk.Has(ref worldRenderBoundType))
