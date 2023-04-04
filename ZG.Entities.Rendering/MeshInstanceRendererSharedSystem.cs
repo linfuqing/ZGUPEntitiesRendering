@@ -215,15 +215,9 @@ namespace ZG
             }
         }
 
-        public SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> batchMaterialIDs
-        {
-            get;
-        }
+        public readonly SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> batchMaterialIDs;
 
-        public SharedHashMap<MeshInstanceMeshAsset, BatchMeshID> batchMeshIDs
-        {
-            get;
-        }
+        public readonly SharedHashMap<MeshInstanceMeshAsset, BatchMeshID> batchMeshIDs;
 
         private NativeHashMap<MeshInstanceMaterialAsset, BatchMaterialID> __batchMaterialIDsToRemove;
 

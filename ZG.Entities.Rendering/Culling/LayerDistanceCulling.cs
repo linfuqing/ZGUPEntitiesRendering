@@ -63,7 +63,7 @@ namespace ZG
 
             if (distanceSq > math.FLT_MIN_NORMAL)
             {
-                if (!chunk.Has(ref chunkWorldRenderBoundType) || 
+                if (!chunk.HasChunkComponent(ref chunkWorldRenderBoundType) || 
                     distanceSq < chunk.GetChunkComponentData(ref chunkWorldRenderBoundType).Value.DistanceSq(cameraPosition))
                     return HybridRendererCullingResult.Invsible;
 

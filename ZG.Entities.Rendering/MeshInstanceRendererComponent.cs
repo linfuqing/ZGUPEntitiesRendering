@@ -251,6 +251,8 @@ namespace ZG
             {
                 foreach (var materialAsset in __materialAssets.Values)
                     MeshInstanceRendererSharedUtility.UnregisterMaterial(materialAsset);
+
+                __materialAssets = null;
             }
         }
 
