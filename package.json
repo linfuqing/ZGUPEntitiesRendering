@@ -1,17 +1,17 @@
 {
   "name": "cn.com.zerogame.unitypackages.entities.rendering",
   "displayName": "ZGUP Entities Rendering",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "unity": "2022.2",
   "unityRelease": "0f1",
   "dependencies": {
-	  "com.unity.entities.graphics": "1.0.0-pre.15", 
-	  "cn.com.zerogame.unitypackages.entities": "2.2.1"
+    "com.unity.entities.graphics": "1.0.0-pre.15",
+    "cn.com.zerogame.unitypackages.entities": "2.2.1"
   },
   "description": "Zero Game Unity Package Entites Rendering",
   "keywords": [
-    "zg", 
-	"dots", 
-	"rendering"
+    "zg",
+    "dots",
+    "rendering"
   ]
 }

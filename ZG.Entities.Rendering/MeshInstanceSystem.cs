@@ -746,9 +746,9 @@ namespace ZG
             [ReadOnly]
             public BufferLookup<MeshInstanceObject> lodGroups;
             [ReadOnly]
-            public ComponentLookup<MeshInstanceTransform> transforms;
+            public BufferLookup<EntityParent> entityParents;
             [ReadOnly]
-            public ComponentLookup<EntityParent> entityParents;
+            public ComponentLookup<MeshInstanceTransform> transforms;
             [NativeDisableParallelForRestriction]
             public ComponentLookup<LocalToWorld> localToWorlds;
             [NativeDisableParallelForRestriction]
@@ -1276,8 +1276,8 @@ namespace ZG
                 setParents.results = results;
                 setParents.renderers = renderersReadOnly;
                 setParents.lodGroups = lodGroupsReadOnly;
+                setParents.entityParents = state.GetBufferLookup<EntityParent>(true);
                 setParents.transforms = state.GetComponentLookup<MeshInstanceTransform>(true);
-                setParents.entityParents = state.GetComponentLookup<EntityParent>(true);
                 setParents.localToWorlds = state.GetComponentLookup<LocalToWorld>();
                 setParents.localToParents = state.GetComponentLookup<LocalToParent>();
                 setParents.parents = state.GetComponentLookup<Parent>();
