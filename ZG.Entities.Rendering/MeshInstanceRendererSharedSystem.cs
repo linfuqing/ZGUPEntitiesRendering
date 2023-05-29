@@ -390,7 +390,7 @@ namespace ZG
         }
     }
 
-    [BurstCompile]
+    [BurstCompile, UpdateInGroup(typeof(UpdatePresentationSystemGroup))]
     public partial struct MeshInstanceRendererReplaceSystem : ISystem
     {
         private struct Replace
@@ -519,6 +519,12 @@ namespace ZG
 
         private EntityQuery __group;
 
+        private EntityTypeHandle __entityType;
+        private BufferTypeHandle<MeshInstanceRendererMaterialModifier> __materialModifierType;
+        private BufferTypeHandle<MeshInstanceRendererMeshModifier> __meshModifierType;
+        private BufferTypeHandle<MeshInstanceNode> __rendererType;
+        private ComponentLookup<MaterialMeshInfo> __materialMeshInfos;
+
         private SharedHashMap<Entity, MeshInstanceRendererBuilder> __builders;
 
         private SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> __batchMaterialIDs;
@@ -527,25 +533,17 @@ namespace ZG
 
         public void OnCreate(ref SystemState state)
         {
-            __group = state.GetEntityQuery(
-                new EntityQueryDesc()
-                {
-                    All = new ComponentType[]
-                    {
-                        ComponentType.ReadOnly<MeshInstanceNode>()
-                    },
-                    Any = new ComponentType[]
-                    {
-                        ComponentType.ReadOnly<MeshInstanceRendererMaterialModifier>(),
-                        ComponentType.ReadOnly<MeshInstanceRendererMeshModifier>()
-                    }
-                });
-            /*__group.SetChangedVersionFilter(
-                new ComponentType[]
-                {
-                    typeof(MeshInstanceRendererMaterialModifier),
-                    typeof(MeshInstanceRendererMeshModifier)
-                });*/
+            using (var builder = new EntityQueryBuilder(Allocator.Temp))
+                __group = builder
+                        .WithAll<MeshInstanceNode>()
+                        .WithAny<MeshInstanceRendererMaterialModifier, MeshInstanceRendererMeshModifier>()
+                        .Build(ref state);
+
+            __entityType = state.GetEntityTypeHandle();
+            __materialModifierType = state.GetBufferTypeHandle<MeshInstanceRendererMaterialModifier>(true);
+            __meshModifierType = state.GetBufferTypeHandle<MeshInstanceRendererMeshModifier>(true);
+            __rendererType = state.GetBufferTypeHandle<MeshInstanceNode>(true);
+            __materialMeshInfos = state.GetComponentLookup<MaterialMeshInfo>();
 
             var world = state.World;
             __builders = world.GetOrCreateSystemUnmanaged<MeshInstanceRendererSystem>().builders;
@@ -571,11 +569,11 @@ namespace ZG
             replace.builders = __builders.reader;
             replace.batchMaterialIDs = __batchMaterialIDs.reader;
             replace.batchMeshIDs = __batchMeshIDs.reader;
-            replace.entityType = state.GetEntityTypeHandle();
-            replace.materialModifierType = state.GetBufferTypeHandle<MeshInstanceRendererMaterialModifier>(true);
-            replace.meshModifierType = state.GetBufferTypeHandle<MeshInstanceRendererMeshModifier>(true);
-            replace.rendererType = state.GetBufferTypeHandle<MeshInstanceNode>(true);
-            replace.materialMeshInfos = state.GetComponentLookup<MaterialMeshInfo>();
+            replace.entityType = __entityType.UpdateAsRef(ref state);
+            replace.materialModifierType = __materialModifierType.UpdateAsRef(ref state);
+            replace.meshModifierType = __meshModifierType.UpdateAsRef(ref state);
+            replace.rendererType = __rendererType.UpdateAsRef(ref state);
+            replace.materialMeshInfos = __materialMeshInfos.UpdateAsRef(ref state);
             var jobHandle = JobHandle.CombineDependencies(buildersJobManager.readOnlyJobHandle, batchMaterialIDsJobManager.readOnlyJobHandle, batchMeshIDsJobManager.readOnlyJobHandle);
             jobHandle = replace.ScheduleParallelByRef(__group, JobHandle.CombineDependencies(jobHandle, state.Dependency));
 

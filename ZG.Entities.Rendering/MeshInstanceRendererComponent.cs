@@ -100,6 +100,8 @@ namespace ZG
     //[EntityComponent(typeof(MeshInstanceTransformDestination))]
     public class MeshInstanceRendererComponent : EntityProxyComponent, IEntityComponent, IEntityRuntimeComponentDefinition, IMaterialModifier
     {
+        private static readonly List<MeshInstanceRendererMaterialModifier> MaterialModifiers = new List<MeshInstanceRendererMaterialModifier>();
+
         private Dictionary<Material, MeshInstanceMaterialAsset> __materialAssets;
 
         [SerializeField]
@@ -163,18 +165,6 @@ namespace ZG
             }
         }
 
-        /*[EntityComponents]
-        public Type[] entityComponentTypesEx
-        {
-            get
-            {
-                if (!isActive)
-                    return new Type[] { typeof(MeshInstanceRendererDisabled) };
-
-                return null;
-            }
-        }*/
-
         public int Replace(Material source, Material destination)
         {
             _database.Init();
@@ -187,6 +177,8 @@ namespace ZG
             handle.index = 0;
 
             var instance = SingletonAssetContainer<MeshInstanceMaterialAsset>.instance;
+
+            MaterialModifiers.Clear();
 
             int count = 0;
             MeshInstanceRendererMaterialModifier materialModifier;
@@ -209,11 +201,13 @@ namespace ZG
                     __materialAssets[destination] = materialModifier.destination;
                 }
 
-                this.AppendBuffer(materialModifier);
+                MaterialModifiers.Add(materialModifier);
 
                 ++handle.index;
                 ++count;
             }
+
+            this.AppendBuffer<MeshInstanceRendererMaterialModifier, List<MeshInstanceRendererMaterialModifier>>(MaterialModifiers);
 
             return count;
         }
@@ -235,14 +229,12 @@ namespace ZG
 
         protected void OnEnable()
         {
-            if (gameObjectEntity.isCreated)
-                this.RemoveComponent<MeshInstanceRendererDisabled>();
+            this.RemoveComponent<MeshInstanceRendererDisabled>();
         }
 
         protected void OnDisable()
         {
-            if (gameObjectEntity.isAssigned)
-                this.AddComponent<MeshInstanceRendererDisabled>();
+            this.AddComponent<MeshInstanceRendererDisabled>();
         }
 
         protected void OnDestroy()
