@@ -7,6 +7,7 @@ namespace ZG
     public class MeshInstanceRendererDatabaseEditor : Editor
     {
         [MenuItem("Assets/ZG/MeshInstance/Rebuild All Renderers")]
+        [CommandEditor("MeshInstance", 0)]
         public static void RebuildAllRenderers()
         {
             MeshInstanceRendererDatabase target;

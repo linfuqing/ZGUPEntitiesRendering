@@ -24,6 +24,11 @@ namespace ZG
         {
             return instanceID;
         }
+
+        public override string ToString()
+        {
+            return $"MeshInstanceMaterialAsset({instanceID})";
+        }
     }
 
     public struct MeshInstanceMeshAsset : IEquatable<MeshInstanceMeshAsset>
@@ -38,6 +43,11 @@ namespace ZG
         public override int GetHashCode()
         {
             return instanceID;
+        }
+
+        public override string ToString()
+        {
+            return $"MeshInstanceMeshAsset({instanceID})";
         }
     }
 
@@ -328,6 +338,8 @@ namespace ZG
             batchMaterialIDs.lookupJobManager.CompleteReadWriteDependency();
 
             batchMaterialIDs.writer.Add(asset, batchMaterialID);
+
+            //Debug.Log($"Material Registered : {material} : {asset.instanceID}");
         }
 
         private void __OnMaterialUnregistered(MeshInstanceMaterialAsset asset)
@@ -338,6 +350,8 @@ namespace ZG
             var graphicsSystem = this.graphicsSystem;
             if (graphicsSystem == null)
                 return;
+
+            //Debug.Log($"Material Unregistered : {asset.instanceID}");
 
             batchMaterialIDs.lookupJobManager.CompleteReadWriteDependency();
 
@@ -367,6 +381,8 @@ namespace ZG
             batchMeshIDs.lookupJobManager.CompleteReadWriteDependency();
 
             batchMeshIDs.writer.Add(asset, batchMeshID);
+
+            //Debug.Log($"Mesh Registered : {mesh} : {asset.instanceID}");
         }
 
         private void __OnMeshUnregistered(MeshInstanceMeshAsset asset)
@@ -377,6 +393,8 @@ namespace ZG
             var graphicsSystem = this.graphicsSystem;
             if (graphicsSystem == null)
                 return;
+
+            //Debug.Log($"Mesh Unregistered : {asset.instanceID}");
 
             batchMeshIDs.lookupJobManager.CompleteReadWriteDependency();
 

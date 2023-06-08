@@ -54,7 +54,7 @@ namespace ZG
 
             public PropertyOverride[] propertyOverrides;
 
-            public bool Apply(Material material, Action<Type, float[]> overrideValues)
+            public bool Apply(Material material, Action<string, Type, ShaderPropertyType, Vector4> overrideValues)
             {
                 var shader = material.shader;
                 if (shader != sharedMaterial.shader)
@@ -82,6 +82,7 @@ namespace ZG
                 {
                     int propertyIndex;
                     Vector4 vector;
+                    ShaderPropertyType shaderPropertyType;
                     Type type;
                     IEnumerable<MaterialPropertyAttribute> attributes;
                     foreach(var propertyOverride in propertyOverrides)
@@ -97,19 +98,28 @@ namespace ZG
                         foreach(var attribute in attributes)
                         {
                             propertyIndex = shader.FindPropertyIndex(attribute.Name);
-                            switch(shader.GetPropertyType(propertyIndex))
+                            shaderPropertyType = shader.GetPropertyType(propertyIndex);
+                            switch (shaderPropertyType)
                             {
                                 case ShaderPropertyType.Vector:
                                 case ShaderPropertyType.Color:
                                     vector = material.GetVector(attribute.Name);
-                                    overrideValues(type, new float[] { vector.x, vector.y, vector.z, vector.w });
+                                    overrideValues(attribute.Name, type, shaderPropertyType, vector);
                                     break;
                                 case ShaderPropertyType.Float:
                                 case ShaderPropertyType.Range:
-                                    overrideValues(type, new float[] { material.GetFloat(attribute.Name) });
+                                    vector.x = material.GetFloat(attribute.Name);
+                                    vector.y = 0.0f;
+                                    vector.z = 0.0f;
+                                    vector.w = 0.0f;
+                                    overrideValues(attribute.Name, type, shaderPropertyType, vector);
                                     break;
                                 case ShaderPropertyType.Int:
-                                    overrideValues(type, new float[] { Unity.Mathematics.math.asfloat(material.GetInt(attribute.Name)) });
+                                    vector.x = Unity.Mathematics.math.asfloat(material.GetInt(attribute.Name));
+                                    vector.y = 0.0f;
+                                    vector.z = 0.0f;
+                                    vector.w = 0.0f;
+                                    overrideValues(attribute.Name, type, shaderPropertyType, vector);
                                     break;
                             }
                         }
@@ -122,7 +132,7 @@ namespace ZG
 
         public MaterialOverride[] materialOverrides;
 
-        public Material Override(Material material, Action<Type, float[]> overrideValues)
+        public Material Override(Material material, Action<string, Type, ShaderPropertyType, Vector4> overrideValues)
         {
             foreach(var materialOverride in materialOverrides)
             {

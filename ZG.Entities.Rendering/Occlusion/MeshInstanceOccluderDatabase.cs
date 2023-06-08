@@ -226,10 +226,10 @@ namespace ZG
             public void Create(Transform root)
             {
                 var rendererLODGroups = new Dictionary<Renderer, LODGroup[]>();
-                MeshInstanceRendererDatabase.Data.Build(root.GetComponentsInChildren<LODGroup>(), rendererLODGroups);
+                MeshInstanceRendererDatabase.Build(root.GetComponentsInChildren<LODGroup>(), rendererLODGroups);
 
                 var rendererStartIndices = new Dictionary<Renderer, int>();
-                MeshInstanceRendererDatabase.Data.Build(root.GetComponentsInChildren<Renderer>(), rendererLODGroups, rendererStartIndices);
+                MeshInstanceRendererDatabase.Build(root.GetComponentsInChildren<Renderer>(), rendererLODGroups, rendererStartIndices);
 
 #if ENABLE_UNITY_OCCLUSION && UNITY_2020_2_OR_NEWER && (HDRP_9_0_0_OR_NEWER || URP_9_0_0_OR_NEWER)
                 Create(root.GetComponentsInChildren<Unity.Rendering.Occlusion.Occluder>(), rendererLODGroups, rendererStartIndices);
