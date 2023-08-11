@@ -34,7 +34,9 @@ namespace ZG
         public int lodGroupCount;
     }
 
-    [/*UpdateInGroup(typeof(PresentationSystemGroup)), */UpdateInGroup(typeof(StructuralChangePresentationSystemGroup), OrderFirst = true)]
+    [/*UpdateInGroup(typeof(PresentationSystemGroup)), */
+        CreateAfter(typeof(EntityCommandSharedSystemGroup)), 
+        UpdateInGroup(typeof(StructuralChangePresentationSystemGroup), OrderFirst = true)]
     public partial class MeshInstanceSystemGroup : ComponentSystemGroup
     {
         private EntityCommandSharedSystemGroup __sharedSystemGroup;
@@ -43,7 +45,7 @@ namespace ZG
         {
             base.OnCreate();
 
-            __sharedSystemGroup = World.GetOrCreateSystemManaged<EntityCommandSharedSystemGroup>();
+            __sharedSystemGroup = World.GetExistingSystemManaged<EntityCommandSharedSystemGroup>();
         }
 
         protected override void OnUpdate()
