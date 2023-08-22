@@ -1359,7 +1359,7 @@ namespace ZG
         }
     }
 
-    [UpdateInGroup(typeof(MeshInstanceSystemGroup), OrderLast = true)]
+    /*[UpdateInGroup(typeof(MeshInstanceSystemGroup), OrderLast = true)]
     public partial class MeshInstanceMaterialPropertyTypeInitSystem : SystemBase
     {
         private struct MaterialPropertyType
@@ -1701,5 +1701,5 @@ namespace ZG
             }
             //componentTypes.Dispose();
         }
-    }
+    }*/
 }

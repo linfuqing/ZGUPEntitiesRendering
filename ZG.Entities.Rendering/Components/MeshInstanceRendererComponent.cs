@@ -81,7 +81,7 @@ namespace ZG
         public int mask;
     }*/
 
-    public class MeshInstanceMaterialPropertyAttribute : MaterialPropertyAttribute
+    /*public class MeshInstanceMaterialPropertyAttribute : MaterialPropertyAttribute
     {
         public string[] keywordMasks;
 
@@ -93,7 +93,7 @@ namespace ZG
         {
             this.keywordMasks = keywordMasks;
         }
-    }
+    }*/
 
     [EntityComponent(typeof(MeshInstanceRendererData))]
     //[EntityComponent(typeof(MeshInstanceTransformSource))]

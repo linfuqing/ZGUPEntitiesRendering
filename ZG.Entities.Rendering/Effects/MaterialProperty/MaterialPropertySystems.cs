@@ -130,7 +130,7 @@ namespace ZG
         }
     }
 
-    [UpdateInGroup(typeof(MeshInstanceSystemGroup), OrderLast = true), UpdateAfter(typeof(MeshInstanceMaterialPropertyTypeInitSystem))]
+    [UpdateInGroup(typeof(MeshInstanceSystemGroup), OrderLast = true)/*, UpdateAfter(typeof(MeshInstanceMaterialPropertyTypeInitSystem))*/]
     public partial class MaterialPropertyInitSystemGroup : ComponentSystemGroup
     {
 
