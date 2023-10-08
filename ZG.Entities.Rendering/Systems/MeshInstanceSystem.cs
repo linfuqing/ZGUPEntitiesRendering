@@ -56,7 +56,7 @@ namespace ZG
         }
     }
 
-    [BurstCompile, CreateAfter(typeof(MeshInstanceRendererSharedSystem)), UpdateInGroup(typeof(MeshInstanceSystemGroup), OrderFirst = true)]
+    [BurstCompile, UpdateInGroup(typeof(MeshInstanceSystemGroup), OrderFirst = true)]
     public partial struct MeshInstanceFactorySystem : ISystem
     {
         //private EntityQuery __groupToAssign;

@@ -215,8 +215,8 @@ namespace ZG
         }
     }
 
-    //[UpdateInGroup(typeof(PresentationSystemGroup)), UpdateBefore(typeof(StructuralChangePresentationSystemGroup))]
-    [DisableAutoCreation]
+    [UpdateInGroup(typeof(PresentationSystemGroup)), UpdateBefore(typeof(StructuralChangePresentationSystemGroup))]
+    //[DisableAutoCreation]
     public partial class MeshInstanceRendererSharedSystem : SystemBase
     {
         private EntitiesGraphicsSystem __graphicsSystem;
@@ -420,7 +420,9 @@ namespace ZG
         }
     }
 
-    [BurstCompile, UpdateInGroup(typeof(UpdatePresentationSystemGroup))]
+    [BurstCompile, 
+        CreateAfter(typeof(MeshInstanceRendererSystem)), 
+        UpdateInGroup(typeof(UpdatePresentationSystemGroup))]
     public partial struct MeshInstanceRendererReplaceSystem : ISystem
     {
         private struct Replace
@@ -557,10 +559,11 @@ namespace ZG
 
         private SharedHashMap<Entity, MeshInstanceRendererBuilder> __builders;
 
-        private SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> __batchMaterialIDs;
+        //private SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> __batchMaterialIDs;
 
-        private SharedHashMap<MeshInstanceMeshAsset, BatchMeshID> __batchMeshIDs;
+        //private SharedHashMap<MeshInstanceMeshAsset, BatchMeshID> __batchMeshIDs;
 
+        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             using (var builder = new EntityQueryBuilder(Allocator.Temp))
@@ -575,14 +578,14 @@ namespace ZG
             __rendererType = state.GetBufferTypeHandle<MeshInstanceNode>(true);
             __materialMeshInfos = state.GetComponentLookup<MaterialMeshInfo>();
 
-            var world = state.World;
-            __builders = world.GetOrCreateSystemUnmanaged<MeshInstanceRendererSystem>().builders;
+            __builders = state.WorldUnmanaged.GetExistingSystemUnmanaged<MeshInstanceRendererSystem>().builders;
 
-            var sharedSystem = world.GetOrCreateSystemManaged<MeshInstanceRendererSharedSystem>();
+            /*var sharedSystem = world.GetOrCreateSystemManaged<MeshInstanceRendererSharedSystem>();
             __batchMaterialIDs = sharedSystem.batchMaterialIDs;
-            __batchMeshIDs = sharedSystem.batchMeshIDs;
+            __batchMeshIDs = sharedSystem.batchMeshIDs;*/
         }
 
+        [BurstCompile]
         public void OnDestroy(ref SystemState state)
         {
 
@@ -591,14 +594,16 @@ namespace ZG
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
+            var sharedData = SystemAPI.GetSingleton<MeshInstanceRendererSharedData>();
+
             ref var buildersJobManager = ref __builders.lookupJobManager;
-            ref var batchMaterialIDsJobManager = ref __batchMaterialIDs.lookupJobManager;
-            ref var batchMeshIDsJobManager = ref __batchMeshIDs.lookupJobManager;
+            ref var batchMaterialIDsJobManager = ref sharedData.batchMaterialIDs.lookupJobManager;
+            ref var batchMeshIDsJobManager = ref sharedData.batchMeshIDs.lookupJobManager;
 
             ReplaceEx replace;
             replace.builders = __builders.reader;
-            replace.batchMaterialIDs = __batchMaterialIDs.reader;
-            replace.batchMeshIDs = __batchMeshIDs.reader;
+            replace.batchMaterialIDs = sharedData.batchMaterialIDs.reader;
+            replace.batchMeshIDs = sharedData.batchMeshIDs.reader;
             replace.entityType = __entityType.UpdateAsRef(ref state);
             replace.materialModifierType = __materialModifierType.UpdateAsRef(ref state);
             replace.meshModifierType = __meshModifierType.UpdateAsRef(ref state);
