@@ -1558,6 +1558,8 @@ namespace ZG
                     prefabs.lookupJobManager.CompleteReadWriteDependency();
                     builders.lookupJobManager.CompleteReadWriteDependency();
 
+                    group.CompleteDependency();
+
                     //systemState.CompleteDependency();
 
                     CollectPrefabEx collectPrefab;

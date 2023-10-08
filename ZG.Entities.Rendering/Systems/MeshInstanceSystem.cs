@@ -213,47 +213,32 @@ namespace ZG
             if (!groupToDestroy.IsEmpty)
                 MeshInstanceRendererUtility.Destroy(
                     groupToDestroy,
-                    __idType.UpdateAsRef(ref state), 
-                    ref prefabs, 
-                    ref builders, 
+                    __idType.UpdateAsRef(ref state),
+                    ref prefabs,
+                    ref builders,
                     ref entityManager);
 
             var results = new NativeList<MeshInstanceRendererPrefabBuilder>(Allocator.TempJob);
 
-            JobHandle jobHandle;
-            JobHandle? assignerJobHandle;
-            var groupToCreate = this.groupToCreate;
-            if (groupToCreate.IsEmpty)
-            {
-                jobHandle = state.Dependency;
-                assignerJobHandle = null;
-            }
-            else
-            {
-                groupToCreate.CompleteDependency();
+            MeshInstanceRendererUtility.Create/*Function*/(
+                MaxRendererDefinitionCount,
+                __rootGroupArchetype,
+                __subGroupArchetype,
+                __instanceArchetype,
+                __lodArchetype,
+                groupToCreate,
+                __instanceType.UpdateAsRef(ref state),
+                __componentTypeIndices.reader,
+                __componentTypes.reader,
+                ref results,
+                ref builders,
+                ref prefabs,
+                ref __assigner,
+                ref entityManager);
 
-                MeshInstanceRendererUtility.Create/*Function*/(
-                    MaxRendererDefinitionCount,
-                    __rootGroupArchetype,
-                    __subGroupArchetype,
-                    __instanceArchetype,
-                    __lodArchetype,
-                    groupToCreate,
-                    __instanceType.UpdateAsRef(ref state),
-                    __componentTypeIndices.reader,
-                    __componentTypes.reader,
-                    ref results,
-                    ref builders,
-                    ref prefabs,
-                    ref __assigner,
-                    ref entityManager);
+            var jobHandle = state.Dependency;
 
-                jobHandle = state.Dependency;
-
-                __assigner.Playback(ref state);
-
-                assignerJobHandle = state.Dependency;
-            }
+            __assigner.Playback(ref state);
 
             var sharedData = SystemAPI.GetSingleton<MeshInstanceRendererSharedData>();
 
@@ -288,8 +273,7 @@ namespace ZG
 
             jobHandle = results.Dispose(jobHandle);
 
-            if (assignerJobHandle != null)
-                jobHandle = JobHandle.CombineDependencies(jobHandle, assignerJobHandle.Value);
+            jobHandle = JobHandle.CombineDependencies(jobHandle, state.Dependency);
 
             state.Dependency = jobHandle;
         }
