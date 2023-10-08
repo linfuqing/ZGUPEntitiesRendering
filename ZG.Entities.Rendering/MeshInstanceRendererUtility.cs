@@ -63,10 +63,10 @@ namespace ZG
             public void SetComponentData(
                 int instanceID,
                 in Entity entity,
-                in SingletonAssetContainer<int>.Reader componentTypeIndices,
+                in SingletonAssetContainer<TypeIndex>.Reader componentTypeIndices,
                 ref EntityComponentAssigner.Writer writer)
             {
-                int componentTypeIndex = componentTypeIndices[new SingletonAssetContainerHandle(instanceID, typeIndex)];
+                var componentTypeIndex = componentTypeIndices[new SingletonAssetContainerHandle(instanceID, typeIndex)];
 
                 switch (values.Length)
                 {
@@ -386,7 +386,7 @@ namespace ZG
         {
             public int maxRendererDefinitionCount;
             public SharedHashMap<int, MeshInstanceRendererPrefabBuilder>.Writer builders;
-            public UnsafeListEx<MeshInstanceRendererPrefabBuilder> results;
+            public NativeList<MeshInstanceRendererPrefabBuilder> results;
 
             public void Execute()
             {
@@ -865,7 +865,7 @@ namespace ZG
         private struct Init : IJob
         {
             [ReadOnly]
-            public UnsafeListEx<MeshInstanceRendererPrefabBuilder> results;
+            public NativeArray<MeshInstanceRendererPrefabBuilder> results;
 
             [NativeDisableParallelForRestriction]
             public ComponentLookup<RenderBounds> renderBounds;
@@ -878,7 +878,7 @@ namespace ZG
 
             public void Execute(int index)
             {
-                ref var result = ref results.ElementAt(index);
+                var result = results[index];
                 ref var definition = ref result.definition.Value;
                 ref var prefab = ref result.prefab.Value;
 
@@ -918,11 +918,11 @@ namespace ZG
 
             public void Execute()
             {
-                int length = results.length;
+                int length = results.Length;
                 for (int i = 0; i < length; ++i)
                     Execute(i);
 
-                results.Dispose();
+                //results.Dispose();
             }
         }
 
@@ -930,7 +930,7 @@ namespace ZG
         private struct InitParallel : IJobParallelFor
         {
             [ReadOnly]
-            public UnsafeListEx<MeshInstanceRendererPrefabBuilder> results;
+            public NativeArray<MeshInstanceRendererPrefabBuilder> results;
 
             [ReadOnly]
             public SingletonAssetContainer<MeshInstanceMaterialAsset>.Reader materialAssets;
@@ -969,10 +969,11 @@ namespace ZG
 
             public void Execute(int index)
             {
-                int resultLength = results.length, resultIndex = 0, count = 0, nextCount;
+                MeshInstanceRendererPrefabBuilder result;
+                int resultLength = results.Length, resultIndex = 0, count = 0, nextCount;
                 for (int i = 0; i < resultLength; ++i)
                 {
-                    ref var result = ref results.ElementAt(i);
+                    result = results[i];
 
                     nextCount = count + result.rendererDefinitionCount + result.lodGroupCount;
                     if (nextCount > index)
@@ -986,7 +987,7 @@ namespace ZG
                 index -= count;
 
                 {
-                    ref var result = ref results.ElementAt(resultIndex);
+                    result = results[resultIndex];
                     ref var definition = ref result.definition.Value;
                     ref var prefab = ref result.prefab.Value;
 
@@ -1034,16 +1035,17 @@ namespace ZG
         private struct ComputeCount
         {
             [ReadOnly]
-            public UnsafeListEx<MeshInstanceRendererPrefabBuilder> results;
+            public NativeArray<MeshInstanceRendererPrefabBuilder> results;
 
             public NativeArray<int> count;
 
             public void Execute()
             {
-                int length = results.length;
+                MeshInstanceRendererPrefabBuilder result;
+                int length = results.Length;
                 for(int i = 0; i < length; ++i)
                 {
-                    ref var result = ref results.ElementAt(i);
+                    result = results[i];
 
                     count[0] += result.rendererDefinitionCount + result.lodGroupCount;
                 }
@@ -1174,25 +1176,25 @@ namespace ZG
         [AOT.MonoPInvokeCallback(typeof(DestroyDelegate))]*/
         public static void Destroy(
             in EntityQuery group,
+            in ComponentTypeHandle<MeshInstanceRendererID> idType, 
             ref SharedHashMap<int, BlobAssetReference<MeshInstanceRendererPrefab>> prefabs,
-            ref SharedHashMap<int, MeshInstanceRendererPrefabBuilder> builders,
-            ref SystemState state)
+            ref SharedHashMap<int, MeshInstanceRendererPrefabBuilder> builders, 
+            ref EntityManager entityManager)
         {
-            var entityManager = state.EntityManager;
             using (var entities = new NativeList<Entity>(Allocator.TempJob))
             {
                 prefabs.lookupJobManager.CompleteReadWriteDependency();
                 builders.lookupJobManager.CompleteReadWriteDependency();
 
-                state.CompleteDependency();
+                group.CompleteDependency();
 
                 DestroyPrefabsEx destroyPrefabs;
-                destroyPrefabs.idType = state.GetComponentTypeHandle<MeshInstanceRendererID>(true);
+                destroyPrefabs.idType = idType;
                 destroyPrefabs.prefabs = prefabs.writer;
                 destroyPrefabs.builders = builders.writer;
                 destroyPrefabs.entitiesToDestroy = entities;
 
-                destroyPrefabs.Run(group);
+                destroyPrefabs.RunByRef(group);
 
                 entityManager.DestroyEntity(entities.AsArray());
             }
@@ -1207,35 +1209,34 @@ namespace ZG
             out EntityArchetype instanceArchetype,
             out EntityArchetype lodArchetype)
         {
-            rootGroupArchetype = entityManager.CreateArchetype(
+            using (var componentTypes = new NativeList<ComponentType>(Allocator.Temp)
+            {
                 ComponentType.ReadOnly<Prefab>(),
                 ComponentType.ReadOnly<RenderBounds>(),
                 ComponentType.ReadOnly<MeshLODGroupComponent>(),
                 ComponentType.ReadOnly<MeshInstanceLODChild>(),
-                /*ComponentType.ReadOnly<MeshInstanceLODGroup>(),
-                ComponentType.ReadOnly<MeshInstanceLODGroupRoot>(),
-                ComponentType.ReadOnly<MeshInstanceLODGroupRootDisabled>(),*/
-                ComponentType.ReadWrite<LocalToWorld>(),/*,
-                ComponentType.ReadWrite<MeshInstanceLODWorldGroup>()*/
+                ComponentType.ReadWrite<LocalToWorld>(),
+                ComponentType.ReadWrite<WorldRenderBounds>()
+            })
+                rootGroupArchetype = entityManager.CreateArchetype(componentTypes.AsArray());
 
-                ComponentType.ReadWrite<WorldRenderBounds>());
-
-            subGroupArchetype = entityManager.CreateArchetype(
+            using (var componentTypes = new NativeList<ComponentType>(Allocator.Temp)
+            {
                 ComponentType.ReadOnly<Prefab>(),
                 ComponentType.ReadOnly<RenderBounds>(),
                 ComponentType.ReadOnly<MeshLODGroupComponent>(),
                 ComponentType.ReadOnly<MeshInstanceLODParentIndex>(),
                 ComponentType.ReadOnly<MeshInstanceLODParent>(),
                 ComponentType.ReadOnly<MeshInstanceLODChild>(),
-                //ComponentType.ReadOnly<MeshInstanceLODGroup>(),
-                ComponentType.ReadWrite<LocalToWorld>(), /*,
-                ComponentType.ReadWrite<MeshInstanceLODWorldGroup>()*/
+                ComponentType.ReadWrite<LocalToWorld>(),
+                ComponentType.ReadWrite<WorldRenderBounds>()
+            })
+                subGroupArchetype = entityManager.CreateArchetype(componentTypes.AsArray());
 
-                ComponentType.ReadWrite<WorldRenderBounds>());
-
-            instanceArchetype = entityManager.CreateArchetype(
+            using (var componentTypes = new NativeList<ComponentType>(Allocator.Temp)
+            {
                 ComponentType.ReadOnly<Prefab>(),
-                ComponentType.ReadOnly<MeshInstanceRendererInit>(),
+                //ComponentType.ReadOnly<MeshInstanceRendererInit>(),
 
                 ComponentType.ReadOnly<RenderFilterSettings>(),
                 ComponentType.ReadOnly<MaterialMeshInfo>(),
@@ -1247,11 +1248,14 @@ namespace ZG
 
                 ComponentType.ReadWrite<WorldRenderBounds>(),
                 ComponentType.ChunkComponent<ChunkWorldRenderBounds>(),
-                ComponentType.ChunkComponent<EntitiesGraphicsChunkInfo>());
+                ComponentType.ChunkComponent<EntitiesGraphicsChunkInfo>()
+            })
+                instanceArchetype = entityManager.CreateArchetype(componentTypes.AsArray());
 
-            lodArchetype = entityManager.CreateArchetype(
+            using (var componentTypes = new NativeList<ComponentType>(Allocator.Temp)
+            {
                 ComponentType.ReadOnly<Prefab>(),
-                ComponentType.ReadOnly<MeshInstanceRendererInit>(),
+                //ComponentType.ReadOnly<MeshInstanceRendererInit>(),
 
                 ComponentType.ReadOnly<WorldToLocal_Tag>(),
                 ComponentType.ReadOnly<RenderFilterSettings>(),
@@ -1268,7 +1272,9 @@ namespace ZG
 
                 ComponentType.ReadWrite<WorldRenderBounds>(),
                 ComponentType.ChunkComponent<ChunkWorldRenderBounds>(),
-                ComponentType.ChunkComponent<EntitiesGraphicsChunkInfo>());
+                ComponentType.ChunkComponent<EntitiesGraphicsChunkInfo>()
+            })
+                lodArchetype = entityManager.CreateArchetype(componentTypes.AsArray());
 
             BurstUtility.InitializeJob<Init>();
             BurstUtility.InitializeJobParallelFor<InitParallel>();
@@ -1286,15 +1292,15 @@ namespace ZG
             in EntityArchetype subGroupArchetype,
             in EntityArchetype instanceArchetype,
             in EntityArchetype lodArchetype,
-            in SingletonAssetContainer<int>.Reader componentTypeIndices, 
+            in SingletonAssetContainer<TypeIndex>.Reader componentTypeIndices, 
             in SingletonAssetContainer<ComponentTypeSet>.Reader componentTypes, 
             ref MeshInstanceRendererDefinition definition,
             ref BlobArray<Entity> outNodeEntities,
             ref BlobArray<Entity> outObjectEntities,
             ref EntityComponentAssigner.Writer writer, 
-            ref SystemState systemState)
+            ref EntityManager entityManager)
         {
-            var entityManager = systemState.EntityManager;
+            //var entityManager = systemState.EntityManager;
 
             Entity entity;
             int numSubGroups = 0, numRootGroups = 0, i, j;
@@ -1524,23 +1530,24 @@ namespace ZG
             }
         }
 
-        /*[BurstCompile]
-        [AOT.MonoPInvokeCallback(typeof(CreateDelegate))]*/
         public static unsafe void Create(
             int maxRendererDefinitionCount, 
             in EntityArchetype rootGroupArchetype,
             in EntityArchetype subGroupArchetype,
             in EntityArchetype instanceArchetype,
             in EntityArchetype lodArchetype,
-            in SingletonAssetContainer<int>.Reader componentTypeIndices,
+            in EntityQuery group, 
+            in ComponentTypeHandle<MeshInstanceRendererData> instanceType, 
+            in SingletonAssetContainer<TypeIndex>.Reader componentTypeIndices,
             in SingletonAssetContainer<ComponentTypeSet>.Reader componentTypes,
-            ref UnsafeListEx<MeshInstanceRendererPrefabBuilder> results,
+            ref NativeList<MeshInstanceRendererPrefabBuilder> results,
             ref SharedHashMap<int, MeshInstanceRendererPrefabBuilder> builders,
             ref SharedHashMap<int, BlobAssetReference<MeshInstanceRendererPrefab>> prefabs,
             ref EntityComponentAssigner assigner,
-            ref SystemState systemState, 
-            in EntityQuery group)
+            ref EntityManager entityManager)
         {
+            //var entityManager = systemState.EntityManager;
+
             var builderWriter = builders.writer;
 
             int entityCount = group.CalculateEntityCount();
@@ -1551,18 +1558,18 @@ namespace ZG
                     prefabs.lookupJobManager.CompleteReadWriteDependency();
                     builders.lookupJobManager.CompleteReadWriteDependency();
 
-                    systemState.CompleteDependency();
+                    //systemState.CompleteDependency();
 
                     CollectPrefabEx collectPrefab;
                     collectPrefab.baseEntityIndexArray = group.CalculateBaseEntityIndexArray(Allocator.TempJob);
-                    collectPrefab.instanceType = systemState.GetComponentTypeHandle<MeshInstanceRendererData>(true);
+                    collectPrefab.instanceType = instanceType;// systemState.GetComponentTypeHandle<MeshInstanceRendererData>(true);
                     collectPrefab.prefabs = prefabs.writer;
                     collectPrefab.builders = builderWriter;
                     collectPrefab.ids = ids;
 
-                    collectPrefab.Run(group);
+                    collectPrefab.RunByRef(group);
 
-                    systemState.EntityManager.AddComponentDataBurstCompatible(group, ids);
+                    entityManager.AddComponentDataBurstCompatible(group, ids);
                 }
             }
 
@@ -1574,11 +1581,10 @@ namespace ZG
 
             assigner.CompleteDependency();
 
-            var entityManager = systemState.EntityManager;
             var prefabsReader = prefabs.reader;
             var prefabWriter = prefabs.writer;
             var assignerWriter = assigner.writer;
-            int length = results.length;
+            int length = results.Length;
             for (int i = 0; i < length; ++i)
             {
                 ref var result = ref results.ElementAt(i);
@@ -1603,13 +1609,13 @@ namespace ZG
                     ref prefab.nodes,
                     ref prefab.objects,
                     ref assignerWriter, 
-                    ref systemState);
+                    ref entityManager);
 
                 InitSharedData(
                     result.startRendererIndex,
                     result.startRendererDefinitionIndex,
                     result.rendererDefinitionCount,
-                    entityManager,
+                    ref entityManager,
                     ref definition.renderers,
                     ref definition.nodes,
                     ref prefabsReader[definition.instanceID].Value.nodes);
@@ -1620,7 +1626,7 @@ namespace ZG
             int startRendererIndex, 
             int startRendererDefinitionIndex, 
             int rendererDefinitionCount, 
-            EntityManager entityManager,
+            ref EntityManager entityManager,
             ref BlobArray<MeshInstanceRendererDefinition.Renderer> renderers,
             ref BlobArray<MeshInstanceRendererDefinition.Node> nodes,
             ref BlobArray<Entity> entityArray)
@@ -1646,24 +1652,27 @@ namespace ZG
             }
         }
 
-        /*[BurstCompile]
-        [AOT.MonoPInvokeCallback(typeof(InitDelegate))]*/
-        public unsafe static void InitData(
+        public unsafe static JobHandle Schedule(
+            int systemID,
             int innerloopBatchCount,
-            in UnsafeListEx<MeshInstanceRendererPrefabBuilder> results,
+            in JobHandle inputDeps, 
+            in NativeArray<MeshInstanceRendererPrefabBuilder> results,
             in SingletonAssetContainer<MeshInstanceMaterialAsset> materialAssets,
             in SingletonAssetContainer<MeshInstanceMeshAsset> meshAssets,
             in SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> batchMaterialIDs,
             in SharedHashMap<MeshInstanceMeshAsset, BatchMeshID> batchMeshIDs,
-            ref EntityComponentAssigner assigner,
-            ref SystemState systemState)
+            ref ComponentLookup<RenderBounds> renderBounds,
+            ref ComponentLookup<LocalToWorld> localToWorlds,
+            ref ComponentLookup<MaterialMeshInfo> materialMeshInfos, 
+            ref ComponentLookup<MeshLODGroupComponent> meshLODGroupComponents,
+            ref ComponentLookup<MeshLODComponent> meshLODComponents,
+            ref ComponentLookup<MeshInstanceLODParentIndex> lodParentIndices,
+            ref ComponentLookup<MeshStreamingVertexOffset> meshStreamingVertexOffsets,
+            ref ComponentLookup<MeshInstanceLODParent> meshInstanceLODParents, 
+            ref BufferLookup<MeshInstanceLODChild> lodChildren)
         {
-            var inputDeps = systemState.Dependency;
-
-            assigner.Playback(ref systemState);
-
-            var renderBounds = systemState.GetComponentLookup<RenderBounds>();
-            var localToWorlds = systemState.GetComponentLookup<LocalToWorld>();
+            //var renderBounds = systemState.GetComponentLookup<RenderBounds>();
+            //var localToWorlds = systemState.GetComponentLookup<LocalToWorld>();
 
             JobHandle jobHandle;
             using (var count = new NativeArray<int>(1, Allocator.Temp, NativeArrayOptions.ClearMemory))
@@ -1682,21 +1691,21 @@ namespace ZG
                 initParallel.meshAssets = meshAssets.reader;
                 initParallel.batchMaterialIDs = batchMaterialIDs.reader;
                 initParallel.batchMeshIDs = batchMeshIDs.reader;
-                initParallel.materialMeshInfos = systemState.GetComponentLookup<MaterialMeshInfo>();
+                initParallel.materialMeshInfos = materialMeshInfos;// systemState.GetComponentLookup<MaterialMeshInfo>();
 
 #if ENABLE_UNITY_OCCLUSION
                 initParallel.occludees = systemState.GetComponentLookup<OcclusionTest>();
 #endif
 
-                initParallel.meshLODGroupComponents = systemState.GetComponentLookup<MeshLODGroupComponent>();
-                initParallel.meshLODComponents = systemState.GetComponentLookup<MeshLODComponent>();
+                initParallel.meshLODGroupComponents = meshLODGroupComponents;// systemState.GetComponentLookup<MeshLODGroupComponent>();
+                initParallel.meshLODComponents = meshLODComponents;// systemState.GetComponentLookup<MeshLODComponent>();
 
                 initParallel.renderBounds = renderBounds;
                 initParallel.localToWorlds = localToWorlds;
-                initParallel.lodParentIndices = systemState.GetComponentLookup<MeshInstanceLODParentIndex>();
-                initParallel.meshStreamingVertexOffsets = systemState.GetComponentLookup<MeshStreamingVertexOffset>();
+                initParallel.lodParentIndices = lodParentIndices;// systemState.GetComponentLookup<MeshInstanceLODParentIndex>();
+                initParallel.meshStreamingVertexOffsets = meshStreamingVertexOffsets;// systemState.GetComponentLookup<MeshStreamingVertexOffset>();
 
-                jobHandle = initParallel.Schedule(
+                jobHandle = initParallel.ScheduleByRef(
                     count[0]/*results.length*/, 
                     innerloopBatchCount, 
                     JobHandle.CombineDependencies(batchMaterialIDsJobManager.readOnlyJobHandle, batchMeshIDsJobManager.readOnlyJobHandle, inputDeps));
@@ -1704,7 +1713,7 @@ namespace ZG
                 batchMaterialIDsJobManager.AddReadOnlyDependency(jobHandle);
                 batchMeshIDsJobManager.AddReadOnlyDependency(jobHandle);
 
-                int systemID = systemState.GetSystemID();
+                //int systemID = systemState.GetSystemID();
 
                 materialAssets.AddDependency(systemID, jobHandle);
                 meshAssets.AddDependency(systemID, jobHandle);
@@ -1714,77 +1723,12 @@ namespace ZG
             init.results = results;
             init.renderBounds = renderBounds;
             init.localToWorlds = localToWorlds;
-            init.lodParents = systemState.GetComponentLookup<MeshInstanceLODParent>();
-            init.lodChildren = systemState.GetBufferLookup<MeshInstanceLODChild>();
+            init.lodParents = meshInstanceLODParents;// systemState.GetComponentLookup<MeshInstanceLODParent>();
+            init.lodChildren = lodChildren;// systemState.GetBufferLookup<MeshInstanceLODChild>();
 
-            jobHandle = init.Schedule(jobHandle);
+            jobHandle = init.ScheduleByRef(jobHandle);
 
-            systemState.Dependency = JobHandle.CombineDependencies(systemState.Dependency, jobHandle);
-        }
-
-        public static void Execute(
-            int innerloopBatchCount,
-            int maxRendererCount, 
-            in EntityArchetype rootGroupArchetype,
-            in EntityArchetype subGroupArchetype,
-            in EntityArchetype instanceArchetype,
-            in EntityArchetype lodArchetype,
-            in EntityQuery group,
-            in SingletonAssetContainer<int>.Reader componentTypeIndices,
-            in SingletonAssetContainer<ComponentTypeSet>.Reader componentTypes,
-            in SingletonAssetContainer<MeshInstanceMaterialAsset> materialAssets,
-            in SingletonAssetContainer<MeshInstanceMeshAsset> meshAssets,
-            in SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> batchMaterialIDs,
-            in SharedHashMap<MeshInstanceMeshAsset, BatchMeshID> batchMeshIDs,
-            ref SharedHashMap<int, BlobAssetReference<MeshInstanceRendererPrefab>> prefabs,
-            ref SharedHashMap<int, MeshInstanceRendererPrefabBuilder> builders,
-            ref EntityComponentAssigner assigner,
-            ref SystemState systemState)
-        {
-            var results = new UnsafeListEx<MeshInstanceRendererPrefabBuilder>(Allocator.TempJob);
-
-            Create/*Function*/(
-                maxRendererCount, 
-                rootGroupArchetype,
-                subGroupArchetype,
-                instanceArchetype,
-                lodArchetype,
-                componentTypeIndices, 
-                componentTypes, 
-                ref results,
-                ref builders, 
-                ref prefabs,
-                ref assigner, 
-                ref systemState,
-                group);
-
-            /*var entityManager = systemState.EntityManager;
-            var reader = prefabs.reader;
-            int numResults = results.length;
-            for (int i = 0; i < numResults; ++i)
-            {
-                ref var result = ref results.ElementAt(i);
-
-                ref var definition = ref result.definition.Value;
-                InitSharedData(
-                    result.startRendererIndex, 
-                    result.startRendererDefinitionIndex, 
-                    result.rendererDefinitionCount, 
-                    entityManager,
-                    ref definition.renderers, 
-                    ref definition.nodes,
-                    ref reader[definition.instanceID].Value.nodes);
-            }*/
-
-            InitData/*Function*/(
-                innerloopBatchCount, 
-                results,
-                materialAssets,
-                meshAssets, 
-                batchMaterialIDs,
-                batchMeshIDs, 
-                ref assigner, 
-                ref systemState);
+            return jobHandle;
         }
 
         private static void __BuildLightMap(
@@ -1799,17 +1743,12 @@ namespace ZG
                 case MeshInstanceRendererDefinition.Renderer.StaticLightingMode.LightProbes:
                     switch (renderer.lightProbeUsage)
                     {
-                        /*case MeshInstanceDefinition.Node.LightProbeUsage.Off:
-                            break;*/
                         case LightProbeUsage.CustomProvided:
                             customProbeTags.Add(entity);
                             break;
                         case LightProbeUsage.BlendProbes:
                             blendProbeTags.Add(entity);
                             break;
-                        /*default:
-                            ambientProbeTags.Add(entity);
-                            break;*/
                     }
 
                     break;
@@ -1819,7 +1758,7 @@ namespace ZG
         private static void __BuildMaterialProperties(
             int instanceID, 
             in Entity entity,
-            in SingletonAssetContainer<int>.Reader componentTypeIndices,
+            in SingletonAssetContainer<TypeIndex>.Reader componentTypeIndices,
             ref BlobArray<int> materialPropertyIndices, 
             ref BlobArray<MeshInstanceRendererDefinition.MaterialProperty> materialProperties, 
             ref EntityComponentAssigner.Writer writer)

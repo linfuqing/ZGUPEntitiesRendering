@@ -63,6 +63,13 @@ namespace ZG
         public MeshInstanceMeshAsset destination;
     }
 
+    public struct MeshInstanceRendererSharedData : IComponentData
+    {
+        public SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> batchMaterialIDs;
+
+        public SharedHashMap<MeshInstanceMeshAsset, BatchMeshID> batchMeshIDs;
+    }
+
     public static class MeshInstanceRendererSharedUtility
     {
         public struct Comparer<T> : IEqualityComparer<T> where T : UnityEngine.Object
@@ -245,6 +252,11 @@ namespace ZG
         protected override void OnCreate()
         {
             base.OnCreate();
+
+            MeshInstanceRendererSharedData instance;
+            instance.batchMaterialIDs = batchMaterialIDs;
+            instance.batchMeshIDs = batchMeshIDs;
+            EntityManager.AddComponentData(SystemHandle, instance);
 
             var materials = MeshInstanceRendererSharedUtility.materials;
             if (materials != null)

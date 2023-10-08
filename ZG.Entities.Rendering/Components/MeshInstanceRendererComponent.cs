@@ -6,9 +6,9 @@ using UnityEngine;
 
 namespace ZG
 {
-    public struct MeshInstanceRendererInit : IComponentData
+    /*public struct MeshInstanceRendererInit : IComponentData
     {
-    }
+    }*/
 
     public struct MeshInstanceRendererDisabled : IComponentData
     {

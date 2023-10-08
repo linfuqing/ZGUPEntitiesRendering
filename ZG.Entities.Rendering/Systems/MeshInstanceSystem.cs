@@ -56,7 +56,7 @@ namespace ZG
         }
     }
 
-    [BurstCompile, AlwaysUpdateSystem, UpdateInGroup(typeof(MeshInstanceSystemGroup), OrderFirst = true)]
+    [BurstCompile, CreateAfter(typeof(MeshInstanceRendererSharedSystem)), UpdateInGroup(typeof(MeshInstanceSystemGroup), OrderFirst = true)]
     public partial struct MeshInstanceFactorySystem : ISystem
     {
         //private EntityQuery __groupToAssign;
@@ -66,14 +66,26 @@ namespace ZG
         private EntityArchetype __instanceArchetype;
         private EntityArchetype __lodArchetype;
 
-        private SingletonAssetContainer<int> __componentTypeIndices;
+        private ComponentTypeHandle<MeshInstanceRendererID> __idType;
+        private ComponentTypeHandle<MeshInstanceRendererData> __instanceType;
+        private ComponentLookup<RenderBounds> __renderBounds;
+        private ComponentLookup<LocalToWorld> __localToWorlds;
+        private ComponentLookup<MaterialMeshInfo> __materialMeshInfos;
+        private ComponentLookup<MeshLODGroupComponent> __meshLODGroupComponents;
+        private ComponentLookup<MeshLODComponent> __meshLODComponents;
+        private ComponentLookup<MeshInstanceLODParentIndex> __lodParentIndices;
+        private ComponentLookup<MeshStreamingVertexOffset> __meshStreamingVertexOffsets;
+        private ComponentLookup<MeshInstanceLODParent> __meshInstanceLODParents;
+        private BufferLookup<MeshInstanceLODChild> __lodChildren;
+
+        private SingletonAssetContainer<TypeIndex> __componentTypeIndices;
         private SingletonAssetContainer<ComponentTypeSet> __componentTypes;
 
         private SingletonAssetContainer<MeshInstanceMaterialAsset> __materialAssets;
         private SingletonAssetContainer<MeshInstanceMeshAsset> __meshAssets;
 
-        private SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> __batchMaterialIDs;
-        private SharedHashMap<MeshInstanceMeshAsset, BatchMeshID> __batchMeshIDs;
+        //private SharedHashMap<MeshInstanceMaterialAsset, BatchMaterialID> __batchMaterialIDs;
+        //private SharedHashMap<MeshInstanceMeshAsset, BatchMeshID> __batchMeshIDs;
 
         private EntityComponentAssigner __assigner;
 
@@ -113,70 +125,29 @@ namespace ZG
             private set;
         }
 
+        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             prefabs = new SharedHashMap<int, BlobAssetReference<MeshInstanceRendererPrefab>>(Allocator.Persistent);
 
             builders = new SharedHashMap<int, MeshInstanceRendererPrefabBuilder>(Allocator.Persistent);
 
-            /*__groupToAssign = state.GetEntityQuery(
-                new EntityQueryDesc()
-                {
-                    All = new ComponentType[]
-                    {
-                        ComponentType.ReadOnly<RenderMesh>(), 
-                        ComponentType.ReadOnly<Prefab>()
-                    }, 
+            using (var builder = new EntityQueryBuilder(Allocator.Temp))
+                groupToDestroy = builder
+                        .WithAll<MeshInstanceRendererID>()
+                        .WithNone<MeshInstanceRendererData>()
+                        .AddAdditionalQuery()
+                        .WithAll<MeshInstanceRendererID, MeshInstanceRendererData>()
+                        .WithAny<MeshInstanceRendererDisabled, MeshInstanceRendererDirty>()
+                        .WithOptions(EntityQueryOptions.IncludeDisabledEntities)
+                        .Build(ref state);
 
-                    Options = EntityQueryOptions.IncludePrefab
-                });*/
-
-            groupToDestroy = state.GetEntityQuery(
-                new EntityQueryDesc()
-                {
-                    All = new ComponentType[]
-                    {
-                        ComponentType.ReadOnly<MeshInstanceRendererID>()
-                    },
-
-                    None = new ComponentType[]
-                    {
-                        typeof(MeshInstanceRendererData)
-                    }
-                },
-
-                new EntityQueryDesc()
-                {
-                    All = new ComponentType[]
-                    {
-                        ComponentType.ReadOnly<MeshInstanceRendererID>(),
-                        ComponentType.ReadOnly<MeshInstanceRendererData>(),
-                    },
-
-                    Any = new ComponentType[]
-                    {
-                        typeof(MeshInstanceRendererDisabled),
-                        typeof(MeshInstanceRendererDirty)
-                    },
-
-                    Options = EntityQueryOptions.IncludeDisabledEntities
-                });
-
-            groupToCreate = state.GetEntityQuery(
-
-                new EntityQueryDesc()
-                {
-                    All = new ComponentType[]
-                    {
-                        ComponentType.ReadOnly<MeshInstanceRendererData>()
-                    },
-                    None = new ComponentType[]
-                    {
-                        typeof(MeshInstanceRendererID),
-                        typeof(MeshInstanceRendererDisabled)
-                    },
-                    Options = EntityQueryOptions.IncludeDisabledEntities
-                });
+            using (var builder = new EntityQueryBuilder(Allocator.Temp))
+                groupToCreate = builder
+                    .WithAll<MeshInstanceRendererData>()
+                    .WithNone<MeshInstanceRendererID, MeshInstanceRendererDisabled>()
+                    .WithOptions(EntityQueryOptions.IncludeDisabledEntities)
+                    .Build(ref state);
 
             MeshInstanceRendererUtility.CreateEntityArchetypes(
                 state.EntityManager,
@@ -185,16 +156,28 @@ namespace ZG
                 out __instanceArchetype,
                 out __lodArchetype);
 
-            var sharedSystem = state.World.GetOrCreateSystemManaged<MeshInstanceRendererSharedSystem>();
+            __idType = state.GetComponentTypeHandle<MeshInstanceRendererID>(true);
+            __instanceType = state.GetComponentTypeHandle<MeshInstanceRendererData>(true);
+            __renderBounds = state.GetComponentLookup<RenderBounds>();
+            __localToWorlds = state.GetComponentLookup<LocalToWorld>();
+            __materialMeshInfos = state.GetComponentLookup<MaterialMeshInfo>();
+            __meshLODGroupComponents = state.GetComponentLookup<MeshLODGroupComponent>();
+            __meshLODComponents = state.GetComponentLookup<MeshLODComponent>();
+            __lodParentIndices = state.GetComponentLookup<MeshInstanceLODParentIndex>();
+            __meshStreamingVertexOffsets = state.GetComponentLookup<MeshStreamingVertexOffset>();
+            __meshInstanceLODParents = state.GetComponentLookup<MeshInstanceLODParent>();
+            __lodChildren = state.GetBufferLookup<MeshInstanceLODChild>();
 
-            __batchMaterialIDs = sharedSystem.batchMaterialIDs;
-            __batchMeshIDs = sharedSystem.batchMeshIDs;
+            //var sharedSystem = state.World.GetExistingSystemManaged<MeshInstanceRendererSharedSystem>();
 
-            __materialAssets = SingletonAssetContainer<MeshInstanceMaterialAsset>.instance;
-            __meshAssets = SingletonAssetContainer<MeshInstanceMeshAsset>.instance;
+            //__batchMaterialIDs = sharedSystem.batchMaterialIDs;
+            //__batchMeshIDs = sharedSystem.batchMeshIDs;
 
-            __componentTypeIndices = SingletonAssetContainer<int>.instance;
-            __componentTypes = SingletonAssetContainer<ComponentTypeSet>.instance;
+            __materialAssets = SingletonAssetContainer<MeshInstanceMaterialAsset>.Retain();
+            __meshAssets = SingletonAssetContainer<MeshInstanceMeshAsset>.Retain();
+
+            __componentTypeIndices = SingletonAssetContainer<TypeIndex>.Retain();
+            __componentTypes = SingletonAssetContainer<ComponentTypeSet>.Retain();
 
             __assigner = new EntityComponentAssigner(Allocator.Persistent);
         }
@@ -202,6 +185,12 @@ namespace ZG
         public void OnDestroy(ref SystemState state)
         {
             __assigner.Dispose();
+
+            __materialAssets.Release();
+            __meshAssets.Release();
+
+            __componentTypes.Release();
+            __componentTypeIndices.Release();
 
             var enumerator = prefabs.GetEnumerator();
             while (enumerator.MoveNext())
@@ -215,33 +204,94 @@ namespace ZG
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
+            var entityManager = state.EntityManager;
+
             var prefabs = this.prefabs;
             var builders = this.builders;
 
             var groupToDestroy = this.groupToDestroy;
             if (!groupToDestroy.IsEmpty)
-                MeshInstanceRendererUtility.Destroy(groupToDestroy, ref prefabs, ref builders, ref state);
+                MeshInstanceRendererUtility.Destroy(
+                    groupToDestroy,
+                    __idType.UpdateAsRef(ref state), 
+                    ref prefabs, 
+                    ref builders, 
+                    ref entityManager);
 
-            //��ʽ����
-            //if (!groupToCreate.IsEmpty)
-            MeshInstanceRendererUtility.Execute(
-                    InnerloopBatchCount,
+            var results = new NativeList<MeshInstanceRendererPrefabBuilder>(Allocator.TempJob);
+
+            JobHandle jobHandle;
+            JobHandle? assignerJobHandle;
+            var groupToCreate = this.groupToCreate;
+            if (groupToCreate.IsEmpty)
+            {
+                jobHandle = state.Dependency;
+                assignerJobHandle = null;
+            }
+            else
+            {
+                groupToCreate.CompleteDependency();
+
+                MeshInstanceRendererUtility.Create/*Function*/(
                     MaxRendererDefinitionCount,
                     __rootGroupArchetype,
                     __subGroupArchetype,
                     __instanceArchetype,
                     __lodArchetype,
                     groupToCreate,
-                    __componentTypeIndices.reader, 
-                    __componentTypes.reader, 
-                    __materialAssets, 
-                    __meshAssets, 
-                    __batchMaterialIDs, 
-                    __batchMeshIDs, 
-                    ref prefabs,
+                    __instanceType.UpdateAsRef(ref state),
+                    __componentTypeIndices.reader,
+                    __componentTypes.reader,
+                    ref results,
                     ref builders,
-                    ref __assigner, 
-                    ref state);
+                    ref prefabs,
+                    ref __assigner,
+                    ref entityManager);
+
+                jobHandle = state.Dependency;
+
+                __assigner.Playback(ref state);
+
+                assignerJobHandle = state.Dependency;
+            }
+
+            var sharedData = SystemAPI.GetSingleton<MeshInstanceRendererSharedData>();
+
+            __renderBounds.Update(ref state);
+            __localToWorlds.Update(ref state);
+            __materialMeshInfos.Update(ref state);
+            __meshLODGroupComponents.Update(ref state);
+            __meshLODComponents.Update(ref state);
+            __lodParentIndices.Update(ref state);
+            __meshStreamingVertexOffsets.Update(ref state);
+            __meshInstanceLODParents.Update(ref state);
+            __lodChildren.Update(ref state);
+
+            jobHandle = MeshInstanceRendererUtility.Schedule/*Function*/(
+                state.GetSystemID(),
+                InnerloopBatchCount,
+                jobHandle,
+                results.AsArray(),
+                __materialAssets,
+                __meshAssets,
+                sharedData.batchMaterialIDs,
+                sharedData.batchMeshIDs,
+                ref __renderBounds,
+                ref __localToWorlds,
+                ref __materialMeshInfos,
+                ref __meshLODGroupComponents,
+                ref __meshLODComponents,
+                ref __lodParentIndices,
+                ref __meshStreamingVertexOffsets,
+                ref __meshInstanceLODParents,
+                ref __lodChildren);
+
+            jobHandle = results.Dispose(jobHandle);
+
+            if (assignerJobHandle != null)
+                jobHandle = JobHandle.CombineDependencies(jobHandle, assignerJobHandle.Value);
+
+            state.Dependency = jobHandle;
         }
     }
 
@@ -1320,12 +1370,12 @@ namespace ZG
     [BurstCompile, UpdateInGroup(typeof(InitializationSystemGroup)), UpdateAfter(typeof(EntityObjectSystemGroup))]
     public partial struct MeshInstanceRendererInitSystem : ISystem
     {
-        private EntityQuery __groupToInit;
+        //private EntityQuery __groupToInit;
         private EntityQuery __groupToDirty;
 
         public void OnCreate(ref SystemState state)
         {
-            __groupToInit = state.GetEntityQuery(
+            /*__groupToInit = state.GetEntityQuery(
                 new EntityQueryDesc()
                 {
                     All = new ComponentType[]
@@ -1333,7 +1383,7 @@ namespace ZG
                         ComponentType.ReadOnly<MeshInstanceRendererInit>()
                     },
                     Options = EntityQueryOptions.IncludeDisabledEntities
-                });
+                });*/
 
             __groupToDirty = state.GetEntityQuery(new EntityQueryDesc()
             {
@@ -1354,7 +1404,7 @@ namespace ZG
         public void OnUpdate(ref SystemState state)
         {
             var entityManager = state.EntityManager;
-            entityManager.RemoveComponent<MeshInstanceRendererInit>(__groupToInit);
+            //entityManager.RemoveComponent<MeshInstanceRendererInit>(__groupToInit);
             entityManager.RemoveComponent<MeshInstanceRendererDirty>(__groupToDirty);
         }
     }

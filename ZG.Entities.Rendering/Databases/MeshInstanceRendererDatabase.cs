@@ -33,7 +33,7 @@ namespace ZG
                 this.typeIndices = typeIndices;
             }
 
-            public ComponentTypeSet ToComponentTypes(int[] typeIndices)
+            public ComponentTypeSet ToComponentTypes(TypeIndex[] typeIndices)
             {
                 int numTypeIndices = this.typeIndices.Length;
                 ComponentType[] componentTypes = new ComponentType[numTypeIndices];
@@ -91,7 +91,7 @@ namespace ZG
 
         private InitType __initType;
 
-        private int[] __typeIndices;
+        private TypeIndex[] __typeIndices;
 
         private BlobAssetReference<MeshInstanceRendererDefinition> __definition;
 
@@ -309,13 +309,13 @@ namespace ZG
                 int numTypes = _types == null ? 0 : _types.Length;
                 if (numTypes > 0)
                 {
-                    var instance = SingletonAssetContainer<int>.instance;
+                    var instance = SingletonAssetContainer<TypeIndex>.instance;
 
                     SingletonAssetContainerHandle handle;
                     handle.instanceID = __definition.Value.instanceID;
 
-                    int typeIndex;
-                    __typeIndices = new int[numTypes];
+                    TypeIndex typeIndex;
+                    __typeIndices = new TypeIndex[numTypes];
                     for (int i = 0; i < numTypes; ++i)
                     {
                         typeIndex = TypeManager.GetTypeIndex(Type.GetType(_types[i]));
