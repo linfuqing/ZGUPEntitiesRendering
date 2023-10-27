@@ -314,7 +314,7 @@ namespace ZG
                 if (numTypes > 0)
                 {
                     if(!__typeIndexContainer.isCreated)
-                        __typeIndexContainer = SingletonAssetContainer<TypeIndex>.instance;
+                        __typeIndexContainer = SingletonAssetContainer<TypeIndex>.Retain();
 
                     SingletonAssetContainerHandle handle;
                     handle.instanceID = __definition.Value.instanceID;
