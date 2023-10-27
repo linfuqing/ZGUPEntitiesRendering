@@ -95,6 +95,11 @@ namespace ZG
 
         private BlobAssetReference<MeshInstanceRendererDefinition> __definition;
 
+        private SingletonAssetContainer<MeshInstanceMaterialAsset> __materailAssetContainer;
+        private SingletonAssetContainer<MeshInstanceMeshAsset> __meshAssetContainer;
+        private SingletonAssetContainer<TypeIndex> __typeIndexContainer;
+        private SingletonAssetContainer<ComponentTypeSet> __componentTypeSetContainer;
+
         public override int instanceID => __definition.IsCreated ? __definition.Value.instanceID : 0;
 
         public BlobAssetReference<MeshInstanceRendererDefinition> definition
@@ -171,10 +176,8 @@ namespace ZG
 
             int instanceID = __definition.Value.instanceID;
 
-            if ((__initType & InitType.Materials) == InitType.Materials)
+            if (__materailAssetContainer.isCreated)
             {
-                var instance = SingletonAssetContainer<MeshInstanceMaterialAsset>.instance;
-
                 SingletonAssetContainerHandle handle;
                 handle.instanceID = instanceID;
 
@@ -183,16 +186,16 @@ namespace ZG
                 {
                     handle.index = i;
 
-                    MeshInstanceRendererSharedUtility.UnregisterMaterial(instance[handle]);
+                    MeshInstanceRendererSharedUtility.UnregisterMaterial(__materailAssetContainer[handle]);
 
-                    instance.Delete(handle);
+                    __materailAssetContainer.Delete(handle);
                 }
+
+                __materailAssetContainer.Release();
             }
 
-            if ((__initType & InitType.Meshes) == InitType.Meshes)
+            if (__meshAssetContainer.isCreated)
             {
-                var instance = SingletonAssetContainer<MeshInstanceMeshAsset>.instance;
-
                 SingletonAssetContainerHandle handle;
                 handle.instanceID = instanceID;
 
@@ -201,40 +204,37 @@ namespace ZG
                 {
                     handle.index = i;
 
-                    MeshInstanceRendererSharedUtility.UnregisterMesh(instance[handle]);
+                    MeshInstanceRendererSharedUtility.UnregisterMesh(__meshAssetContainer[handle]);
 
-                    instance.Delete(handle);
+                    __meshAssetContainer.Delete(handle);
                 }
+
+                __meshAssetContainer.Release();
             }
 
-            if ((__initType & InitType.TypeIndices) == InitType.TypeIndices)
+            if (__typeIndexContainer.isCreated)
             {
+                SingletonAssetContainerHandle handle;
+                handle.instanceID = instanceID;
+
                 int length = __typeIndices == null ? 0 : __typeIndices.Length;
-                if (length > 0)
+                for (int i = 0; i < length; ++i)
                 {
-                    var container = SingletonAssetContainer<int>.instance;
+                    handle.index = i;
 
-                    SingletonAssetContainerHandle handle;
-                    handle.instanceID = instanceID;
-
-                    for (int i = 0; i < length; ++i)
-                    {
-                        handle.index = i;
-
-                        container.Delete(handle);
-                    }
+                    __typeIndexContainer.Delete(handle);
                 }
 
-                __typeIndices = null;
+                __typeIndexContainer.Release();
             }
 
-            if ((__initType & InitType.ComponentTypes) == InitType.ComponentTypes)
+            __typeIndices = null;
+
+            if (__componentTypeSetContainer.isCreated)
             {
                 int length = _componentTypeWrappers == null ? 0 : _componentTypeWrappers.Length;
                 if (length > 0)
                 {
-                    var container = SingletonAssetContainer<ComponentTypeSet>.instance;
-
                     SingletonAssetContainerHandle handle;
                     handle.instanceID = instanceID;
 
@@ -242,9 +242,11 @@ namespace ZG
                     {
                         handle.index = i;
 
-                        container.Delete(handle);
+                        __componentTypeSetContainer.Delete(handle);
                     }
                 }
+
+                __componentTypeSetContainer.Release();
             }
 
             __initType = 0;
@@ -269,13 +271,14 @@ namespace ZG
                 SingletonAssetContainerHandle handle;
                 handle.instanceID = __definition.Value.instanceID;
 
-                var instance = SingletonAssetContainer<MeshInstanceMaterialAsset>.instance;
+                if(!__materailAssetContainer.isCreated)
+                    __materailAssetContainer = SingletonAssetContainer<MeshInstanceMaterialAsset>.Retain();
 
                 int numMaterials = _materials.Length;
                 for (int i = 0; i < numMaterials; ++i)
                 {
                     handle.index = i;
-                    instance[handle] = MeshInstanceRendererSharedUtility.RegisterMaterial(_materials[i]);
+                    __materailAssetContainer[handle] = MeshInstanceRendererSharedUtility.RegisterMaterial(_materials[i]);
                 }
             }
         }
@@ -289,13 +292,14 @@ namespace ZG
                 SingletonAssetContainerHandle handle;
                 handle.instanceID = __definition.Value.instanceID;
 
-                var instance = SingletonAssetContainer<MeshInstanceMeshAsset>.instance;
+                if(!__meshAssetContainer.isCreated)
+                    __meshAssetContainer = SingletonAssetContainer<MeshInstanceMeshAsset>.Retain();
 
                 int numMeshes = _meshes.Length;
                 for (int i = 0; i < numMeshes; ++i)
                 {
                     handle.index = i;
-                    instance[handle] = MeshInstanceRendererSharedUtility.RegisterMesh(_meshes[i]);
+                    __meshAssetContainer[handle] = MeshInstanceRendererSharedUtility.RegisterMesh(_meshes[i]);
                 }
             }
         }
@@ -309,7 +313,8 @@ namespace ZG
                 int numTypes = _types == null ? 0 : _types.Length;
                 if (numTypes > 0)
                 {
-                    var instance = SingletonAssetContainer<TypeIndex>.instance;
+                    if(!__typeIndexContainer.isCreated)
+                        __typeIndexContainer = SingletonAssetContainer<TypeIndex>.instance;
 
                     SingletonAssetContainerHandle handle;
                     handle.instanceID = __definition.Value.instanceID;
@@ -324,7 +329,7 @@ namespace ZG
 
                         handle.index = i;
 
-                        instance[handle] = typeIndex;
+                        __typeIndexContainer[handle] = typeIndex;
                     }
                 }
             }
@@ -341,7 +346,8 @@ namespace ZG
                 int numComponentTypeWrappers = _componentTypeWrappers == null ? 0 : _componentTypeWrappers.Length;
                 if (numComponentTypeWrappers > 0)
                 {
-                    var instance = SingletonAssetContainer<ComponentTypeSet>.instance;
+                    if(!__componentTypeSetContainer.isCreated)
+                        __componentTypeSetContainer = SingletonAssetContainer<ComponentTypeSet>.Retain();
 
                     SingletonAssetContainerHandle handle;
                     handle.instanceID = __definition.Value.instanceID;
@@ -350,7 +356,7 @@ namespace ZG
                     {
                         handle.index = i;
 
-                        instance[handle] = _componentTypeWrappers[i].ToComponentTypes(__typeIndices);
+                        __componentTypeSetContainer[handle] = _componentTypeWrappers[i].ToComponentTypes(__typeIndices);
                     }
                 }
             }
