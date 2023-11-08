@@ -380,6 +380,8 @@ namespace ZG
                             UnityEngine.Assertions.Assert.AreEqual(VERSION, version);
 
                             __definition = reader.Read<MeshInstanceRendererDefinition>();
+
+                            __definition.Value.instanceID = __definition.GetHashCode();
                         }
                     }
                 }
