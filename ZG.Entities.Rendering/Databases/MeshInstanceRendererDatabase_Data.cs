@@ -908,6 +908,9 @@ namespace ZG
                     UnityEditor.EditorUtility.ClearProgressBar();
 #endif
 
+                if (rendererIndices == null)
+                    return;
+
                 if (materialPropertyIndices == null)
                     materialProperties = null;
                 else
