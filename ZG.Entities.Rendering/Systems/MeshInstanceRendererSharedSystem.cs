@@ -130,6 +130,13 @@ namespace ZG
 
         public static MeshInstanceMaterialAsset RegisterMaterial(Material material)
         {
+            if (material == null)
+            {
+                Debug.LogError("WTF?");
+                
+                return default;
+            }
+
             if (__materials == null)
             {
                 Comparer<Material> comparer;

@@ -278,6 +278,7 @@ namespace ZG
                 for (int i = 0; i < numMaterials; ++i)
                 {
                     handle.index = i;
+                    UnityEngine.Assertions.Assert.IsNotNull(_materials[i], name);
                     __materailAssetContainer[handle] = MeshInstanceRendererSharedUtility.RegisterMaterial(_materials[i]);
                 }
             }
@@ -298,6 +299,8 @@ namespace ZG
                 int numMeshes = _meshes.Length;
                 for (int i = 0; i < numMeshes; ++i)
                 {
+                    UnityEngine.Assertions.Assert.IsNotNull(_meshes[i], name);
+                    
                     handle.index = i;
                     __meshAssetContainer[handle] = MeshInstanceRendererSharedUtility.RegisterMesh(_meshes[i]);
                 }

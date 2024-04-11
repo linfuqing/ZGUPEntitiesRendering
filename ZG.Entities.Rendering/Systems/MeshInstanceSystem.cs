@@ -11,8 +11,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Rendering;
-using UnityEngine;
-using UnityEngine.Rendering;
 //using UnityEngine.SceneManagement;
 //using ZG.Unsafe;
 //using FrustumPlanes = Unity.Rendering.FrustumPlanes;

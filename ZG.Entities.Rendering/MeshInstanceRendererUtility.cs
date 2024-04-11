@@ -1105,7 +1105,21 @@ namespace ZG
             }
         }
 
-        public static unsafe int EntityStartIndexOf(ref BlobArray<MeshInstanceRendererDefinition.Node> nodes, int nodeIndex)
+        public static int DefinitionIndexOf(ref BlobArray<MeshInstanceRendererDefinition.Node> nodes, int nodeIndex)
+        {
+            int numNodes = nodes.Length, lodCount;
+            for (int i = 0; i < numNodes; ++i)
+            {
+                lodCount = nodes[i].lods.Length;
+                nodeIndex -= lodCount > 0 ? lodCount : 1;
+                if (nodeIndex < 0)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        public static int EntityStartIndexOf(ref BlobArray<MeshInstanceRendererDefinition.Node> nodes, int nodeIndex)
         {
             int entityStartIndex = 0, lodCount;
             for (int i = 0; i < nodeIndex; ++i)

@@ -167,6 +167,10 @@ namespace ZG
 
         public int Replace(Material source, Material destination)
         {
+            UnityEngine.Assertions.Assert.IsNotNull(destination, transform.root.name);
+            if (destination == null)
+                return 0;
+            
             _database.Init();
 
             if (__materialAssets == null)
