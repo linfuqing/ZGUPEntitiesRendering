@@ -12,7 +12,7 @@ public struct MeshInstanceRendererLayerOverride : IComponentData
     public int destinationLayer;
 }
 
-[BurstCompile]
+[BurstCompile, CreateAfter(typeof(MeshInstanceRendererSystem))]
 public partial struct MeshInstanceRendererLayerOverrideSystem : ISystem
 {
     private struct LayerOverride
