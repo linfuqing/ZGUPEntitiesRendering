@@ -1247,7 +1247,7 @@ namespace ZG
                     counter = (key.isStatic ? staticCounters : dynamicCounters)[keyValue.Value];
 
                     entityManager.Instantiate(
-                        key.index < prefabRendererCount ? prefab.nodes[key.index] : prefab.objects[key.index - prefabRendererCount],
+                        key.index < prefabRendererCount ? prefab.nodes[key.index] : prefab.nodes[key.index - prefabRendererCount],
                         instanceEntities.GetSubArray(counter.startIndex, counter.count));
                 }
 
