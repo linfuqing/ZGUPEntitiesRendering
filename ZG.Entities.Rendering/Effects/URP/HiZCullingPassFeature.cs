@@ -81,6 +81,9 @@ namespace ZG
             public bool Init()
             {
                 var depthTexture = HiZUtility.currentDepthTexture;// HiZUtility.ConfigureDepthTexture(renderingData.cameraData.camera.pixelWidth);
+                if (depthTexture == null)
+                    return false;
+                
                 if (depthTexture != __depthTexture)
                 {
                     if (__renderTextureFactory == null || __renderTextureFactory.isReadbackCompleted)
@@ -265,7 +268,9 @@ namespace ZG
 
         protected override void Dispose(bool disposing)
         {
-            //HiZUtility.Dispose();
+            //??
+            /*if(disposing)
+                HiZUtility.Dispose();*/
 
             RenderPipelineManager.beginCameraRendering -= __OnBeginCameraRendering;
             RenderPipelineManager.endCameraRendering -= __OnEndCameraRendering;
@@ -273,7 +278,7 @@ namespace ZG
 
         private void __OnBeginCameraRendering(ScriptableRenderContext context, Camera camera)
         {
-            if(isActive)
+            if(isActive && Application.isPlaying)
                 HiZUtility.ConfigureDepthTexture(camera.pixelWidth);
         }
 

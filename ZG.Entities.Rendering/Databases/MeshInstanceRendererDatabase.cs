@@ -316,6 +316,8 @@ namespace ZG
                 int numTypes = _types == null ? 0 : _types.Length;
                 if (numTypes > 0)
                 {
+                    TypeManager.Initialize();
+                    
                     if(!__typeIndexContainer.isCreated)
                         __typeIndexContainer = SingletonAssetContainer<TypeIndex>.Retain();
 

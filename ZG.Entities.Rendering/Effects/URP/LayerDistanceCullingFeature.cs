@@ -8,14 +8,6 @@ namespace ZG
 {
     public class LayerDistanceCullingFeature : ScriptableRendererFeature
     {
-        [System.Serializable]
-        public struct LayerDistanceOverride
-        {
-            [Layer]
-            public int index;
-            public float value;
-        }
-
         [SerializeField]
         internal float _layerDistanceDefault;
 
@@ -56,8 +48,12 @@ namespace ZG
             RenderPipelineManager.endCameraRendering -= __OnEndCameraRendering;
             RenderPipelineManager.endCameraRendering += __OnEndCameraRendering;
 
-            if (!LayerDistanceCullingSettings.globalDefinition.IsCreated)
-                LayerDistanceCullingSettings.globalDefinition = Create(_layerDistanceDefault, _layerDistanceOverrides);
+            if (Application.isPlaying)
+            {
+                using (var layerDistanceOverrides =
+                       new NativeArray<LayerDistanceOverride>(_layerDistanceOverrides, Allocator.Temp))
+                    LayerDistanceCullingSettings.Configure(_layerDistanceDefault, layerDistanceOverrides);
+            }
 
             __CalculateMaxDistance();
         }
@@ -131,16 +127,6 @@ namespace ZG
         void OnValidate()
         {
             Create();
-
-            ref var values = ref LayerDistanceCullingSettings.globalDefinition.Value.values;
-            for (int i = 0; i < 32; ++i)
-                values[i] = _layerDistanceDefault * _layerDistanceDefault;
-
-            if (_layerDistanceOverrides != null)
-            {
-                foreach (var layerDistanceOverride in _layerDistanceOverrides)
-                    values[layerDistanceOverride.index] = layerDistanceOverride.value * layerDistanceOverride.value;
-            }
 
             __CalculateMaxDistance();
         }

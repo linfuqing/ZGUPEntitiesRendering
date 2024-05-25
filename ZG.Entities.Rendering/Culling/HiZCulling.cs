@@ -126,6 +126,7 @@ namespace ZG
             }
         }
 
+        [RuntimeDispose]
         public static void Dispose()
         {
             if (__currentDepthTexture != null)
@@ -515,7 +516,7 @@ namespace ZG
             boxUVs = math.saturate(boxUVs * 0.5f + 0.5f);
             float2 size = (boxUVs.zw - boxUVs.xy) * math.float2(depthMap.Width, depthMap.Height);
             float mip = math.log2(math.max(size.x, size.y));
-            // 离得太近，或者物体太大，占了满屏
+            // 绂诲緱澶繎锛屾垨鑰呯墿浣撳お澶э紝鍗犱簡婊″睆
             if (math.round(mip) >= depthMap.MipLevels)
                 return true;
 
@@ -866,13 +867,6 @@ namespace ZG
         public int height => __map.Height;
 
         public int mipLevels => __map.MipLevels;
-
-        /*public Matrix4x4 viewProjectionMatrix
-        {
-            get;
-
-            private set;
-        }*/
 
         public HiZDepthTexture(int width, int height, int mipLevels)
         {

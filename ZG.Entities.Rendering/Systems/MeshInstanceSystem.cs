@@ -959,7 +959,7 @@ namespace ZG
 
                     if (node.meshStreamingOffset != -1)
                     {
-                        output.value = input + (uint)node.meshStreamingOffset;
+                        output = new MeshStreamingVertexOffset(input + (uint)node.meshStreamingOffset);
 
                         for(j = 0; j < rendererCount; ++j)
                         {

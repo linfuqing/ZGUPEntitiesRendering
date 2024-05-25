@@ -5,8 +5,6 @@ using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Rendering;
 using Unity.Entities.Graphics;
-using UnityEngine.Rendering;
-using UnityEditor.Experimental;
 
 [assembly: RegisterGenericJobType(typeof(ZG.HybridRendererCullingTest<ZG.LayerDistanceCullingTester, ZG.LayerDistanceCullingClipper>))]
 /*#if HYBRID_RENDERER_CULL_OVERRIDE
@@ -15,6 +13,14 @@ using UnityEditor.Experimental;
 
 namespace ZG
 {
+    [System.Serializable]
+    public struct LayerDistanceOverride
+    {
+        [Layer]
+        public int index;
+        public float value;
+    }
+
     public struct LayerDistanceCullingDefinition
     {
         public BlobArray<float> values;
@@ -119,16 +125,66 @@ namespace ZG
         public static BlobAssetReference<LayerDistanceCullingDefinition> globalDefinition
         {
             get => GlobalDefinition.value.Data;
-
-            set
-            {
-                GlobalDefinition.value.Data = value;
-            }
         }
 
         public static ref float farClipPlane => ref FarClipPlane.value.Data;
 
         public static ref bool isActive => ref Active.value.Data;
+
+        public static BlobAssetReference<LayerDistanceCullingDefinition> Create(float layerDistanceDefault, NativeArray<LayerDistanceOverride> layerDistanceOverrides)
+        {
+            using (var blobBuilder = new BlobBuilder(Allocator.Temp))
+            {
+                ref var root = ref blobBuilder.ConstructRoot<LayerDistanceCullingDefinition>();
+
+                var values = blobBuilder.Allocate(ref root.values, 32);
+
+                for (int i = 0; i < 32; ++i)
+                    values[i] = layerDistanceDefault * layerDistanceDefault;
+
+                if(layerDistanceOverrides.IsCreated)
+                {
+                    foreach (var layerDistanceOverride in layerDistanceOverrides)
+                        values[layerDistanceOverride.index] = layerDistanceOverride.value * layerDistanceOverride.value;
+                }
+
+                return blobBuilder.CreateBlobAssetReference<LayerDistanceCullingDefinition>(Allocator.Persistent);
+            }
+        }
+
+        [RuntimeDispose]
+        public static void Dispose()
+        {
+            if (globalDefinition.IsCreated)
+            {
+                LayerDistanceCullingSettings.CompleteReadWriteDependency();
+
+                var globalDefinition = LayerDistanceCullingSettings.globalDefinition;
+
+                GlobalDefinition.value.Data = BlobAssetReference<LayerDistanceCullingDefinition>.Null;
+
+                globalDefinition.Dispose();
+            }
+        }
+
+        public static void Configure(float layerDistanceDefault, in NativeArray<LayerDistanceOverride> layerDistanceOverrides)
+        {
+            var globalDefinition = LayerDistanceCullingSettings.globalDefinition;
+            if (globalDefinition.IsCreated)
+            {
+                ref var definition = ref globalDefinition.Value;
+                for (int i = 0; i < 32; ++i)
+                    definition.values[i] = layerDistanceDefault * layerDistanceDefault;
+                
+                if(layerDistanceOverrides.IsCreated)
+                {
+                    foreach (var layerDistanceOverride in layerDistanceOverrides)
+                        definition.values[layerDistanceOverride.index] = layerDistanceOverride.value * layerDistanceOverride.value;
+                }
+            }
+            else
+                GlobalDefinition.value.Data = Create(layerDistanceDefault, layerDistanceOverrides);
+        }
 
         public static void AddReadOnlyDependency(in JobHandle jobHandle) => JobManager.value.Data.AddReadOnlyDependency(jobHandle);
 

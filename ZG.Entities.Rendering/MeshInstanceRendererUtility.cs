@@ -632,8 +632,7 @@ namespace ZG
                 RenderBounds renderBounds;
                 renderBounds.Value = node.bounds;
 
-                MeshStreamingVertexOffset meshStreamingVertexOffset;
-                meshStreamingVertexOffset.value = node.meshStreamingOffset < 0 ? uint.MaxValue : (uint)node.meshStreamingOffset;
+                var meshStreamingVertexOffset = new MeshStreamingVertexOffset(node.meshStreamingOffset < 0 ? uint.MaxValue : (uint)node.meshStreamingOffset);
 
                 int entityStartIndex = EntityStartIndexOf(ref nodes, index), numLODs = node.lods.Length;
                 Entity entity = nodeEntities[entityStartIndex];

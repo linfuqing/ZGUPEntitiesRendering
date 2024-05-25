@@ -31,16 +31,12 @@ namespace ZG
         {
             yield return _database.Load();
 
-            MeshStreamingVertexOffset vertexOffset;
-            vertexOffset.value = _database.vertexOffset;
-            this.SetComponentData(vertexOffset);
+            this.SetComponentData(new MeshStreamingVertexOffset(_database.vertexOffset));
         }
 
         void IEntityComponent.Init(in Unity.Entities.Entity entity, EntityComponentAssigner assigner)
         {
-            MeshStreamingVertexOffset vertexOffset;
-            vertexOffset.value = uint.MaxValue;
-            assigner.SetComponentData(entity, vertexOffset);
+            assigner.SetComponentData(entity, new MeshStreamingVertexOffset(uint.MaxValue));
         }
     }
 }

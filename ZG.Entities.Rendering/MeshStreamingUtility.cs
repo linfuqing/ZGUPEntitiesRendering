@@ -18,7 +18,22 @@ namespace ZG
     [MaterialProperty("_MeshStreamingVertexOffset")]
     public struct MeshStreamingVertexOffset : IComponentData
     {
-        public uint value;
+        private uint __value;
+
+        public uint value
+        {
+            get => __value;//(__value.x << 0) | (__value.y << 8) | (__value.z << 16) | (__value.w << 24);
+            set => __value = new MeshStreamingVertexOffset(value).__value;
+        }
+
+        public MeshStreamingVertexOffset(uint value)
+        {
+            __value = value;
+            /*__value.x = (value >> 0) & 0xff;
+            __value.y = (value >> 8) & 0xff;
+            __value.z = (value >> 16) & 0xff;
+            __value.w = (value >> 24) & 0xff;*/
+        }
     }
 
     public static class MeshStreamingSharedData<T> where T : struct
@@ -42,6 +57,12 @@ namespace ZG
             __memoryWrapper = new MemoryWrapper();
             //__memoryWrapper.Alloc(1023);
         }
+
+        /*[RuntimeDispose]
+        public static void Dispose()
+        {
+            __structBuffer.Dispose();
+        }*/
 
         public static T[] GetData(int startIndex, int count)
         {
@@ -351,10 +372,11 @@ namespace ZG
             ushort vertexCountPerInstance,
             ref Mesh.MeshData mesh)
         {
-            using (var attributes = new NativeArray<VertexAttributeDescriptor>(0, Allocator.Temp, NativeArrayOptions.ClearMemory))
-                //attributes[0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 1, 0);
-                mesh.SetVertexBufferParams(vertexCountPerInstance, attributes);
-            //attributes.Dispose();
+            var attributes =
+                new NativeArray<VertexAttributeDescriptor>(0, Allocator.Temp, NativeArrayOptions.ClearMemory);
+            //attributes[0] = new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 1, 0);
+            mesh.SetVertexBufferParams(vertexCountPerInstance, attributes);
+            attributes.Dispose();
 
             mesh.SetIndexBufferParams(vertexCountPerInstance, IndexFormat.UInt16);
             var indices = mesh.GetIndexData<ushort>();
