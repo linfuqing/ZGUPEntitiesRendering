@@ -184,7 +184,7 @@ namespace ZG
 
             MaterialModifiers.Clear();
 
-            int count = 0;
+            //int count = 0;
             MeshInstanceRendererMaterialModifier materialModifier;
             var materials = _database.materials;
             foreach (var material in materials)
@@ -208,10 +208,12 @@ namespace ZG
                 MaterialModifiers.Add(materialModifier);
 
                 ++handle.index;
-                ++count;
+                //++count;
             }
 
-            this.AppendBuffer<MeshInstanceRendererMaterialModifier, List<MeshInstanceRendererMaterialModifier>>(MaterialModifiers);
+            int count = MaterialModifiers.Count;
+            if(count > 0)
+                this.AppendBuffer<MeshInstanceRendererMaterialModifier, List<MeshInstanceRendererMaterialModifier>>(MaterialModifiers);
 
             return count;
         }
