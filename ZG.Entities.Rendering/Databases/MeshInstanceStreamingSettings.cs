@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
@@ -137,6 +138,8 @@ namespace ZG
                 private set;
             } = uint.MaxValue;
 
+            private Task __task;
+
             public IEnumerator Load(string path, long pathOffset, int vertexCount, byte[] md5Hash)
             {
                 string persistentDataPath = Shared.overridePath ?? Path.Combine(Application.persistentDataPath, path);
@@ -163,31 +166,57 @@ namespace ZG
                     }
                 }
 
-                int length = vertexCount * UnsafeUtility.SizeOf<TVertex>();
-                var vertices = new byte[length];
+                yield return new WaitForEndOfFrame();
 
+                int vertexOffset;
+                NativeArray<TVertex> vertices;
+                while (!MeshStreamingSharedData<TVertex>.BeginAlloc(vertexCount, out vertexOffset, out vertices))
+                    yield return new WaitForEndOfFrame();
+
+                this.vertexOffset = (uint)vertexOffset;
+
+                //int length = vertexCount * UnsafeUtility.SizeOf<TVertex>();
+                //var vertices = new byte[length];
+
+                int countToWritten;
                 using (var fileStream = File.OpenRead(persistentDataPath))
                 {
-                    fileStream.Position = pathOffset + Shared.overridePathOffset;
-
-                    using (var task = fileStream.ReadAsync(vertices, 0, length))
+                    long position = pathOffset + Shared.overridePathOffset;
+                    fileStream.Position = position;
+                    __task = new Task(() =>
                     {
+                        //using(var stream = __ToStream(ref vertices))
+                        fileStream.Read(vertices.Reinterpret<byte>(UnsafeUtility.SizeOf<TVertex>()).AsSpan());
+                    });
+                    
+                    {
+                        __task.Start();
+                        
                         do
                         {
                             yield return null;
 
-                            var exception = task.Exception;
+                            var exception = __task.Exception;
                             if (exception != null)
                             {
                                 Debug.LogException(exception.InnerException ?? exception);
 
-                                yield break;
+                                break;
                             }
-                        } while (!task.IsCompleted);
+                            
+                            __task.Wait();
+                        } while (!__task.IsCompleted);
+
+                        __task.Dispose();
+                        
+                        __task = null;
                     }
+
+                    countToWritten = (int)((fileStream.Position - position) / UnsafeUtility.SizeOf<TVertex>());
                 }
 
-                this.vertexOffset = MeshStreamingSharedData<TVertex>.Alloc(vertices, 0, length);
+                MeshStreamingSharedData<TVertex>.EndAlloc(countToWritten);
+                //this.vertexOffset = MeshStreamingSharedData<TVertex>.Alloc(vertices, 0, length);
             }
 
             public IEnumerator Load(
@@ -223,52 +252,99 @@ namespace ZG
                 }
 
                 long overridePathOffset = Shared.overridePathOffset;
-
+                
+                int countToWritten;
                 using (var fileStream = File.OpenRead(persistentDataPath))
                 {
-                    fileStream.Position = pathVertexOffset + overridePathOffset;
+                    int vertexOffset;
+                    NativeArray<TVertex> vertices;
+                    while (!MeshStreamingSharedData<TVertex>.BeginAlloc(vertexCount, out vertexOffset, out vertices))
+                        yield return null;
 
-                    int vertexLength = vertexCount * UnsafeUtility.SizeOf<TVertex>();
-                    var vertices = new byte[vertexLength];
-                    using (var task = fileStream.ReadAsync(vertices, 0, vertexLength))
+                    this.vertexOffset = (uint)vertexOffset;
+
+                    long position = pathVertexOffset + overridePathOffset;
+                    fileStream.Position = position;
+
+                    //int vertexLength = vertexCount * UnsafeUtility.SizeOf<TVertex>();
+                    //var vertices = new byte[vertexLength];
+                    __task = new Task(() =>
                     {
+                        //using(var stream = __ToStream(ref vertices))
+                        fileStream.Read(vertices.Reinterpret<byte>(UnsafeUtility.SizeOf<TVertex>()).AsSpan());
+                    });//fileStream.ReadAsync(vertices, 0, vertexLength))
+                    {
+                        __task.Start();
+
                         do
                         {
                             yield return null;
 
-                            var exception = task.Exception;
+                            var exception = __task.Exception;
+                            if (exception != null)
+                            {
+                                Debug.LogException(exception.InnerException ?? exception);
+
+                                break;
+                            }
+                        } while (!__task.IsCompleted);
+                        
+                        __task.Dispose();
+
+                        __task = null;
+                    }
+                    
+                    countToWritten = (int)((fileStream.Position - position) / UnsafeUtility.SizeOf<TVertex>());
+                    
+                    MeshStreamingSharedData<TVertex>.EndAlloc(countToWritten);
+                    //this.vertexOffset = MeshStreamingSharedData<TVertex>.Alloc(vertices, 0, vertexLength);
+
+                    yield return new WaitForEndOfFrame();
+                    
+                    int indexOffset;
+                    NativeArray<UInt32> indices;
+                    while (!MeshStreamingSharedData<UInt32>.BeginAlloc(indexCount, out indexOffset, out indices))
+                        yield return new WaitForEndOfFrame();
+
+                    this.indexOffset = (uint)indexOffset;
+
+                    position = pathIndexOffset + overridePathOffset;
+                    fileStream.Position = position;
+
+                    //int indexLength = indexCount * UnsafeUtility.SizeOf<UInt32>();
+                    //var indices = new byte[indexLength];
+
+                    __task = new Task(() =>
+                    { 
+                        //using(var stream = __ToStream(ref vertices))
+                        fileStream.Read(indices.Reinterpret<byte>(UnsafeUtility.SizeOf<UInt32>()).AsSpan());
+                    });//fileStream.ReadAsync(indices, 0, indexLength))
+                    {
+                        __task.Start();
+
+                        do
+                        {
+                            yield return null;
+
+                            var exception = __task.Exception;
                             if (exception != null)
                             {
                                 Debug.LogException(exception.InnerException ?? exception);
 
                                 yield break;
                             }
-                        } while (!task.IsCompleted);
-                    }
-                    this.vertexOffset = MeshStreamingSharedData<TVertex>.Alloc(vertices, 0, vertexLength);
 
-                    fileStream.Position = pathIndexOffset + overridePathOffset;
+                        } while (!__task.IsCompleted);
+                        
+                        __task.Dispose();
 
-                    int indexLength = indexCount * UnsafeUtility.SizeOf<UInt32>();
-                    var indices = new byte[indexLength];
-
-                    using (var task = fileStream.ReadAsync(indices, 0, indexLength))
-                    {
-                        do
-                        {
-                            yield return null;
-
-                            var exception = task.Exception;
-                            if (exception != null)
-                            {
-                                Debug.LogException(exception.InnerException ?? exception);
-
-                                yield break;
-                            }
-                        } while (!task.IsCompleted);
+                        __task = null;
                     }
 
-                    this.indexOffset = MeshStreamingSharedData<UInt32>.Alloc(indices, 0, indexLength);
+                    countToWritten = (int)((fileStream.Position - position) / UnsafeUtility.SizeOf<UInt32>());
+                    
+                    MeshStreamingSharedData<UInt32>.EndAlloc(countToWritten);
+                    //this.indexOffset = MeshStreamingSharedData<UInt32>.Alloc(indices, 0, indexLength);
                 }
             }
 
@@ -281,12 +357,28 @@ namespace ZG
                     __gcHandle = 0;
                 }*/
 
+                if (__task != null)
+                {
+                    __task.Wait();
+                    
+                    __task.Dispose();
+
+                    __task = null;
+                }
+
                 if (MeshStreamingSharedData<TVertex>.Free(vertexOffset))
                     vertexOffset = uint.MaxValue;
 
                 if(indexOffset < uint.MaxValue && MeshStreamingSharedData<UInt32>.Free(indexOffset))
                     indexOffset = uint.MaxValue;
             }
+
+            /*private unsafe UnmanagedMemoryStream __ToStream(ref NativeArray<TVertex> vertices)
+            {
+                int length = vertices.Length * UnsafeUtility.SizeOf<TVertex>();
+                return new UnmanagedMemoryStream((byte*)vertices.GetUnsafePtr(),
+                    0, length, FileAccess.Write);
+            }*/
         }
 
         public static string overridePath

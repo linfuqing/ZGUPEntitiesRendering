@@ -4,6 +4,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Rendering;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -36,8 +37,72 @@ namespace ZG
         }
     }
 
-    public static class MeshStreamingSharedData<T> where T : struct
+    public static class MeshStreamingSharedData<T> where T : unmanaged
     {
+        private struct Job : IDisposable
+        {
+            [Unity.Burst.BurstCompile]
+            private struct Copy : IJob
+            {
+                public long dropOffset;
+
+                public long dropLength;
+
+                public long length;
+
+                [NativeDisableUnsafePtrRestriction]
+                public unsafe void* src;
+
+                [NativeDisableUnsafePtrRestriction]
+                public unsafe void* dsc;
+
+                public unsafe void Execute()
+                {
+                    if(dropOffset > 0)
+                        UnsafeUtility.MemCpy(dsc, src, math.min(dropOffset, length));
+
+                    long offset = dropOffset + dropLength;
+                    if(offset < length)
+                        UnsafeUtility.MemCpy((byte*)dsc + offset, (byte*)src + offset, length - offset);
+                }
+            }
+
+            private ulong __gcHandle;
+            private JobHandle __jobHandle;
+
+            public unsafe Job(int offset, int count, T[] src, ref NativeArray<T> dsc)
+            {
+                int size = UnsafeUtility.SizeOf<T>();
+                
+                /*fixed(void* ptr = src)
+                    UnsafeUtility.MemCpy(dsc.GetUnsafePtr(), ptr, src.Length * size);
+
+                __jobHandle = default;
+                __gcHandle = 0;
+                return;*/
+                
+                Copy copy;
+                copy.dropOffset = offset * size;
+                copy.dropLength = count * size;
+                copy.length = src.Length * size;
+                copy.src = UnsafeUtility.PinGCArrayAndGetDataAddress(src, out __gcHandle);
+                copy.dsc = dsc.GetUnsafePtr();
+                
+                __jobHandle = copy.ScheduleByRef();
+            }
+
+            public void Dispose()
+            {
+                __jobHandle.Complete();
+
+                __jobHandle = default;
+
+                UnsafeUtility.ReleaseGCObject(__gcHandle);
+
+                __gcHandle = 0;
+            }
+        }
+
         const int DEFAULT_SIZE = 2048;
         const string NAME_PREFIX = "_MeshStreaming";
 
@@ -45,12 +110,21 @@ namespace ZG
 
         public static readonly int ShaderID = Shader.PropertyToID(ShaderName);
 
-        private static ComputeBuffer __structBuffer;
+        private static GraphicsBuffer __structBuffer;
         private static MemoryWrapper __memoryWrapper;
+
+        private static Job? __job;
+
+        public static bool isLocking
+        {
+            get;
+
+            private set;
+        }
 
         static MeshStreamingSharedData()
         {
-            __structBuffer = new ComputeBuffer(DEFAULT_SIZE, UnsafeUtility.SizeOf<T>(), ComputeBufferType.Default);
+            __structBuffer = __CreateGraphicsBuffer(DEFAULT_SIZE);
 
             Shader.SetGlobalBuffer(ShaderID, __structBuffer);
 
@@ -72,8 +146,53 @@ namespace ZG
 
             return values;
         }
+        
+        public static bool BeginAlloc(int count, out int offset, out NativeArray<T> buffer)
+        {
+            if (isLocking)
+            {
+                offset = 0;
 
-        public static unsafe uint Alloc<U>(U[] data, int startIndex, int count) where U : unmanaged
+                buffer = default;
+                
+                return false;
+            }
+
+            isLocking = true;
+            
+            offset = __Alloc(count, out buffer);
+            if (buffer.IsCreated)
+                buffer = buffer.GetSubArray(offset, count);
+            else
+                buffer = __structBuffer.LockBufferForWrite<T>(offset, count);
+
+            return true;
+        }
+
+        public static bool EndAlloc(int countToWritten)
+        {
+            if (!isLocking)
+                return false;
+            
+            if (__job != null)
+            {
+                var job = __job.Value;
+                
+                countToWritten = __structBuffer.count;
+                
+                job.Dispose();
+
+                __job = null;
+            }
+            
+            __structBuffer.UnlockBufferAfterWrite<T>(countToWritten);
+
+            isLocking = false;
+
+            return true;
+        }
+
+        /*public static unsafe uint Alloc<U>(U[] data, int startIndex, int count) where U : unmanaged
         {
             int vertexCount = count * UnsafeUtility.SizeOf<U>() / UnsafeUtility.SizeOf<T>(),
                 offset = __Alloc(vertexCount);
@@ -86,14 +205,16 @@ namespace ZG
             }
 
             return (uint)offset;
-        }
+        }*/
 
         public static bool Free(uint offset)
         {
+            EndAlloc(0);
+            
             return __memoryWrapper.Free((int)offset);
         }
 
-        private static int __Alloc(int count)
+        private static int __Alloc(int count, out NativeArray<T> buffer)
         {
             int offset = __memoryWrapper.Alloc(count),
                 length = __memoryWrapper.length,
@@ -103,16 +224,37 @@ namespace ZG
                 var values = new T[bufferCount];
                 __structBuffer.GetData(values);
 
-                __structBuffer.Dispose();
+                __structBuffer.Release();
 
-                __structBuffer = new ComputeBuffer(length, UnsafeUtility.SizeOf<T>(), ComputeBufferType.Default);
+                __structBuffer = __CreateGraphicsBuffer(length);
+                //__structBuffer.SetData(values, 0, 0, bufferCount);
 
                 Shader.SetGlobalBuffer(ShaderID, __structBuffer);
 
-                __structBuffer.SetData(values, 0, 0, bufferCount);
+                //buffer = default;
+                buffer = __structBuffer.LockBufferForWrite<T>(0, length);
+
+                __job = new Job(offset, count, values, ref buffer);
+                
+                //Sync
+                /*__job.Value.Dispose();
+                __job = null;
+                buffer = default;
+                __structBuffer.UnlockBufferAfterWrite<T>(length);*/
             }
+            else
+                buffer = default;
 
             return offset;
+        }
+
+        private static GraphicsBuffer __CreateGraphicsBuffer(int count)
+        {
+            return new GraphicsBuffer(
+                GraphicsBuffer.Target.Structured, 
+                GraphicsBuffer.UsageFlags.LockBufferForWrite, 
+                count, 
+                UnsafeUtility.SizeOf<T>());
         }
     }
 
