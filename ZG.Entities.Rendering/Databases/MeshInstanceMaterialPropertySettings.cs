@@ -12,7 +12,8 @@ namespace ZG
     {
         public enum PropertyFormat
         {
-            Texture
+            Texture, 
+            Keyword
         }
 
         [Serializable]
@@ -28,6 +29,8 @@ namespace ZG
                 {
                     case PropertyFormat.Texture:
                         return x.GetTexture(propertyName) == y.GetTexture(propertyName);
+                    case PropertyFormat.Keyword:
+                        return x.IsKeywordEnabled(propertyName) == y.IsKeywordEnabled(propertyName);
                 }
 
                 return false;
@@ -46,10 +49,10 @@ namespace ZG
         {
             public Material sharedMaterial;
 
-            [Tooltip("关键字相同则判定为同一种材质")]
+            [Tooltip("锟截硷拷锟斤拷锟斤拷同锟斤拷锟叫讹拷为同一锟街诧拷锟斤拷")]
             public string[] keywordConditions;
 
-            [Tooltip("属性相同则判定为同一种材质")]
+            [Tooltip("锟斤拷锟斤拷锟斤拷同锟斤拷锟叫讹拷为同一锟街诧拷锟斤拷")]
             public PropertyCondition[] propertyConditions;
 
             public PropertyOverride[] propertyOverrides;
