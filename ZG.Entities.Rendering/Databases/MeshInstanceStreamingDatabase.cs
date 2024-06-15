@@ -37,10 +37,23 @@ namespace ZG
 
         public uint vertexOffset => __manager == null ? uint.MaxValue : __manager.vertexOffset;
 
+        public int refCount
+        {
+            get;
+
+            private set;
+        }
+
         public IEnumerator Load()
         {
             if (__manager != null)
+            {
+                ++refCount;
+                
                 return null;
+            }
+
+            refCount = 1;
 
             __manager = _settings.CreateManager();
 
@@ -49,7 +62,7 @@ namespace ZG
 
         public void Unload()
         {
-            if (__manager != null)
+            if (__manager != null && --refCount < 1)
             {
                 __manager.Unload();
 
@@ -76,7 +89,12 @@ namespace ZG
 
         protected void OnDestroy()
         {
-            Unload();
+            if (__manager != null)
+            {
+                __manager.Unload();
+
+                __manager = null;
+            }
         }
 
 #if UNITY_EDITOR

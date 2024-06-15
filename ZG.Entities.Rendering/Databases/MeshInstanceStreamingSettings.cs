@@ -222,7 +222,7 @@ namespace ZG
                 //this.vertexOffset = MeshStreamingSharedData<TVertex>.Alloc(vertices, 0, length);
             }
 
-            public IEnumerator Load(
+            /*public IEnumerator Load(
                 string path, 
                 long pathVertexOffset,
                 long pathIndexOffset,
@@ -355,7 +355,7 @@ namespace ZG
                     MeshStreamingSharedData<UInt32>.EndAlloc(countToWritten);
                     //this.indexOffset = MeshStreamingSharedData<UInt32>.Alloc(indices, 0, indexLength);
                 }
-            }
+            }*/
 
             public void Unload()
             {
