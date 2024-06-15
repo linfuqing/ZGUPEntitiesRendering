@@ -196,6 +196,9 @@ namespace ZG
                         {
                             yield return null;
 
+                            if (__task == null)
+                                yield break;
+
                             var exception = __task.Exception;
                             if (exception != null)
                             {
@@ -280,6 +283,9 @@ namespace ZG
                         {
                             yield return null;
 
+                            if (__task == null)
+                                yield break;
+
                             var exception = __task.Exception;
                             if (exception != null)
                             {
@@ -325,6 +331,9 @@ namespace ZG
                         do
                         {
                             yield return null;
+
+                            if (__task == null)
+                                yield break;
 
                             var exception = __task.Exception;
                             if (exception != null)
