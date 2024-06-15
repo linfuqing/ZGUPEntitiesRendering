@@ -13,7 +13,7 @@ namespace ZG
         public enum PropertyFormat
         {
             Texture, 
-            Keyword
+            Vector,
         }
 
         [Serializable]
@@ -29,8 +29,8 @@ namespace ZG
                 {
                     case PropertyFormat.Texture:
                         return x.GetTexture(propertyName) == y.GetTexture(propertyName);
-                    case PropertyFormat.Keyword:
-                        return x.IsKeywordEnabled(propertyName) == y.IsKeywordEnabled(propertyName);
+                    case PropertyFormat.Vector:
+                        return x.GetVector(propertyName) == y.GetVector(propertyName);
                 }
 
                 return false;
