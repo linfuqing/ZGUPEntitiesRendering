@@ -103,7 +103,7 @@ namespace ZG
             }
         }
 
-        const int DEFAULT_SIZE = 2048;
+        const int DEFAULT_SIZE = short.MaxValue;
         const string NAME_PREFIX = "_MeshStreaming";
 
         public static readonly string ShaderName = $"{NAME_PREFIX}{typeof(T).Name}Data";
@@ -124,6 +124,7 @@ namespace ZG
 
         static MeshStreamingSharedData()
         {
+            //Debug.LogError(SystemInfo.maxGraphicsBufferSize / 1024 / 1024);
             __structBuffer = __CreateGraphicsBuffer(DEFAULT_SIZE);
 
             Shader.SetGlobalBuffer(ShaderID, __structBuffer);
@@ -147,24 +148,22 @@ namespace ZG
             return values;
         }
         
-        public static bool BeginAlloc(int count, out int offset, out NativeArray<T> buffer)
+        public static bool BeginAlloc(int count, out int offset, out NativeArray<T> buffer, out bool isResize)
         {
             if (isLocking)
             {
                 offset = 0;
 
                 buffer = default;
+
+                isResize = false;
                 
                 return false;
             }
 
             isLocking = true;
             
-            offset = __Alloc(count, out buffer);
-            if (buffer.IsCreated)
-                buffer = buffer.GetSubArray(offset, count);
-            else
-                buffer = __structBuffer.LockBufferForWrite<T>(offset, count);
+            offset = __Alloc(count, out buffer, out isResize);
 
             return true;
         }
@@ -173,7 +172,7 @@ namespace ZG
         {
             if (!isLocking)
                 return false;
-            
+
             if (__job != null)
             {
                 var job = __job.Value;
@@ -209,17 +208,18 @@ namespace ZG
 
         public static bool Free(uint offset)
         {
-            EndAlloc(0);
+            //EndAlloc(0);
             
             return __memoryWrapper.Free((int)offset);
         }
 
-        private static int __Alloc(int count, out NativeArray<T> buffer)
+        private static int __Alloc(int count, out NativeArray<T> buffer, out bool isResize)
         {
             int offset = __memoryWrapper.Alloc(count),
                 length = __memoryWrapper.length,
                 bufferCount = __structBuffer.count;
-            if (bufferCount < length)
+            isResize = bufferCount < length;
+            if (isResize)
             {
                 var values = new T[bufferCount];
                 __structBuffer.GetData(values);
@@ -227,23 +227,21 @@ namespace ZG
                 __structBuffer.Release();
 
                 __structBuffer = __CreateGraphicsBuffer(length);
-                //__structBuffer.SetData(values, 0, 0, bufferCount);
 
                 Shader.SetGlobalBuffer(ShaderID, __structBuffer);
 
-                //buffer = default;
+                //__structBuffer.SetData(values, 0, 0, bufferCount);
+
                 buffer = __structBuffer.LockBufferForWrite<T>(0, length);
 
                 __job = new Job(offset, count, values, ref buffer);
-                
-                //Sync
-                /*__job.Value.Dispose();
-                __job = null;
-                buffer = default;
-                __structBuffer.UnlockBufferAfterWrite<T>(length);*/
+
+                buffer = buffer.GetSubArray(offset, count);
+
+                //buffer = __structBuffer.LockBufferForWrite<T>(offset, count);
             }
             else
-                buffer = default;
+                buffer = __structBuffer.LockBufferForWrite<T>(offset, count);
 
             return offset;
         }

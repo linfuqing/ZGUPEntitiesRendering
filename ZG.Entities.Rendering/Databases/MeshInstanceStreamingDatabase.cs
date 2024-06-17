@@ -55,7 +55,7 @@ namespace ZG
 
             refCount = 1;
 
-            __manager = _settings.CreateManager();
+            __manager = _settings.CreateManager(name);
 
             return __manager.Load(_path, _pathOffset, _vertexCount, _md5Hash);
         }

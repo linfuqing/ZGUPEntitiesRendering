@@ -104,7 +104,7 @@ namespace ZG
             Action<MeshInstanceRendererDatabase.Instance> instances);
 #endif
 
-        public abstract IMeshInstanceStreamingManager CreateManager();
+        public abstract IMeshInstanceStreamingManager CreateManager(string name);
 
         public virtual Mesh CreateMesh(MeshInstanceStreamingDatabase database)
         {
@@ -138,14 +138,21 @@ namespace ZG
                 private set;
             } = uint.MaxValue;
 
-            private Task __task;
+            private Task __vertexTask;
+
+            public readonly string Name;
+
+            public Manager(string name)
+            {
+                Name = name;
+            }
 
             public IEnumerator Load(string path, long pathOffset, int vertexCount, byte[] md5Hash)
             {
                 string persistentDataPath = Shared.overridePath ?? Path.Combine(Application.persistentDataPath, path);
                 bool isExists = File.Exists(persistentDataPath);
                 //
-
+ 
                 if (!isExists)
                 {
                     using (var www = new UnityWebRequest(
@@ -165,12 +172,13 @@ namespace ZG
                         }
                     }
                 }
-
+  
                 yield return new WaitForEndOfFrame();
 
+                bool isResize;
                 int vertexOffset;
                 NativeArray<TVertex> vertices;
-                while (!MeshStreamingSharedData<TVertex>.BeginAlloc(vertexCount, out vertexOffset, out vertices))
+                while (!MeshStreamingSharedData<TVertex>.BeginAlloc(vertexCount, out vertexOffset, out vertices, out isResize))
                     yield return new WaitForEndOfFrame();
 
                 this.vertexOffset = (uint)vertexOffset;
@@ -183,23 +191,30 @@ namespace ZG
                 {
                     long position = pathOffset + Shared.overridePathOffset;
                     fileStream.Position = position;
-                    __task = new Task(() =>
+                    __vertexTask = new Task(() =>
                     {
                         //using(var stream = __ToStream(ref vertices))
                         fileStream.Read(vertices.Reinterpret<byte>(UnsafeUtility.SizeOf<TVertex>()).AsSpan());
                     });
                     
                     {
-                        __task.Start();
+                        __vertexTask.Start();
                         
                         do
                         {
                             yield return null;
 
-                            if (__task == null)
+                            if (__vertexTask == null)
+                            {
+                                Debug.LogError($"{Name} Load Fail!");
+                                
                                 yield break;
+                            }
 
-                            var exception = __task.Exception;
+                            if(isResize)
+                                __vertexTask.Wait();
+
+                            var exception = __vertexTask.Exception;
                             if (exception != null)
                             {
                                 Debug.LogException(exception.InnerException ?? exception);
@@ -207,18 +222,22 @@ namespace ZG
                                 break;
                             }
                             
-                            __task.Wait();
-                        } while (!__task.IsCompleted);
+                        } while (!__vertexTask.IsCompleted);
 
-                        __task.Dispose();
+                        __vertexTask.Dispose();
                         
-                        __task = null;
+                        __vertexTask = null;
                     }
 
                     countToWritten = (int)((fileStream.Position - position) / UnsafeUtility.SizeOf<TVertex>());
+                    
+                    if(countToWritten < vertexCount)
+                        Debug.LogError($"countToWritten < vertexCount : {countToWritten} < {vertexCount}");
                 }
 
-                MeshStreamingSharedData<TVertex>.EndAlloc(countToWritten);
+                if(!MeshStreamingSharedData<TVertex>.EndAlloc(countToWritten))
+                    Debug.LogError($"{Name} EndAlloc Fail!");
+                
                 //this.vertexOffset = MeshStreamingSharedData<TVertex>.Alloc(vertices, 0, length);
             }
 
@@ -366,16 +385,22 @@ namespace ZG
                     __gcHandle = 0;
                 }*/
 
-                if (__task != null)
+                if (__vertexTask != null)
                 {
-                    __task.Wait();
+                    __vertexTask.Wait();
                     
-                    __task.Dispose();
+                    var exception = __vertexTask.Exception;
+                    if (exception != null)
+                        Debug.LogException(exception.InnerException ?? exception);
+                    
+                    __vertexTask.Dispose();
 
-                    __task = null;
+                    __vertexTask = null;
+
+                    MeshStreamingSharedData<TVertex>.EndAlloc(0);
                 }
 
-                if (MeshStreamingSharedData<TVertex>.Free(vertexOffset))
+                if (vertexOffset < uint.MaxValue && MeshStreamingSharedData<TVertex>.Free(vertexOffset))
                     vertexOffset = uint.MaxValue;
 
                 if(indexOffset < uint.MaxValue && MeshStreamingSharedData<UInt32>.Free(indexOffset))
@@ -608,7 +633,7 @@ namespace ZG
             return false;
         }
 
-        public override IMeshInstanceStreamingManager CreateManager() => new Manager();
+        public override IMeshInstanceStreamingManager CreateManager(string name) => new Manager(name);
 
         private static unsafe UnmanagedMemoryStream __ConvertTo<T>(T[] values, out ulong gcHandle) where T : unmanaged
         {
