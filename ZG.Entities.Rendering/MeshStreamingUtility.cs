@@ -283,7 +283,7 @@ namespace ZG
             public MinMaxAABB aabb;
         }
 
-        public struct Triangle<T> : IKDTreeValue where T : IVertex
+        public struct Triangle<T> : IKDTreeValue where T : unmanaged, IVertex
         {
             public T x;
             public T y;
@@ -293,9 +293,16 @@ namespace ZG
             {
                 return ((x.position + y.position + z.position) / 3.0f)[dimension];
             }
+
+            public void Push(ref NativeList<T> result)
+            {
+                result.Add(x);
+                result.Add(y);
+                result.Add(z);
+            }
         }
 
-        public static unsafe float BuildInstances<TVertex, TMeshWrapper>(
+        public static float BuildInstances<TVertex, TMeshWrapper>(
             int vertexCountPerInstance,
             in Mesh.MeshDataArray meshes,
             in NativeArray<SubMesh> subMeshes,
@@ -345,7 +352,7 @@ namespace ZG
             Instance instance;
             Triangle<TVertex> trinagle;
             NativeKDTreeNode<Triangle<TVertex>> parent, node = destinations.root.GetBackwardLeaf(ref depth);
-            NativeParallelHashSet<NativeKDTreeNode<Triangle<TVertex>>> parents = default;
+            UnsafeHashSet<NativeKDTreeNode<Triangle<TVertex>>> parents = default;
             while (node.isCreated)
             {
                 UnityEngine.Assertions.Assert.AreEqual(depth, node.GetDepth());
@@ -360,7 +367,9 @@ namespace ZG
                 {
                     trinagle = child.value;
 
-                    vertices.AddRange(UnsafeUtility.AddressOf(ref trinagle), 3);
+                    trinagle.Push(ref vertices);
+
+                    //vertices.AddRange(UnsafeUtility.AddressOf(ref trinagle), 3);
                 }
                  
                 numVertices = vertices.Length - instance.vertexOffset;
@@ -370,7 +379,7 @@ namespace ZG
                 if (numVertices < vertexCountPerInstance)
                 {
                     if (!parents.IsCreated)
-                        parents = new NativeParallelHashSet<NativeKDTreeNode<Triangle<TVertex>>>(1, Allocator.Temp);
+                        parents = new UnsafeHashSet<NativeKDTreeNode<Triangle<TVertex>>>(1, Allocator.Temp);
 
                     for (i = numVertices; i < vertexCountPerInstance; i += 3)
                     {
@@ -382,7 +391,9 @@ namespace ZG
 
                         trinagle = parent.value;
 
-                        vertices.AddRange(UnsafeUtility.AddressOf(ref trinagle), 3);
+                        trinagle.Push(ref vertices);
+
+                        //vertices.AddRange(UnsafeUtility.AddressOf(ref trinagle), 3);
 
                         parent = parent.parent;
                     }
@@ -441,7 +452,9 @@ namespace ZG
 
                             trinagle = node.value;
 
-                            vertices.AddRange(UnsafeUtility.AddressOf(ref trinagle), 3);
+                            trinagle.Push(ref vertices);
+
+                            //vertices.AddRange(UnsafeUtility.AddressOf(ref trinagle), 3);
 
                             numVertices = vertices.Length - instance.vertexOffset;
                             if (numVertices >= vertexCountPerInstance)
