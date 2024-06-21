@@ -336,7 +336,7 @@ namespace ZG
 
             var destinations = new NativeKDTree<Triangle<TVertex>>(3, Allocator.Temp);
 
-            var polygonArray = sources.AsArray().Reinterpret<Triangle<TVertex>>();
+            var polygonArray = sources.AsArray();//.Reinterpret<Triangle<TVertex>>();
 
             destinations.Insert(ref polygonArray, KDTreeInserMethod.Variance);
 

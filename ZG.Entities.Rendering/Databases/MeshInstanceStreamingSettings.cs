@@ -486,6 +486,9 @@ namespace ZG
                 ref instances,
                 ref meshWrapper);
 
+            subMeshes.Dispose();
+            meshArray.Dispose();
+            
             MeshInstanceRendererDatabase.Instance result;
             result.bounds = default;
             result.matrix = Matrix4x4.identity;
@@ -499,8 +502,6 @@ namespace ZG
             }
 
             instances.Dispose();
-            subMeshes.Dispose();
-            meshArray.Dispose();
 
             Debug.Log($"Rate: {rate}", this);
 
