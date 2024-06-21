@@ -410,7 +410,7 @@ namespace ZG
 
                     if (numVertices < vertexCountPerInstance)
                     {
-                        ref var vertex = ref vertices.ElementAt(instance.vertexOffset);
+                        var vertex = vertices[instance.vertexOffset];
                         for (i = numVertices; i < vertexCountPerInstance; ++i)
                         {
                             vertices.Add(vertex);
@@ -490,7 +490,7 @@ namespace ZG
 
                     if (numVertices < vertexCountPerInstance)
                     {
-                        ref var vertex = ref vertices.ElementAt(instance.vertexOffset);
+                        var vertex = vertices[instance.vertexOffset];
                         for (i = numVertices; i < vertexCountPerInstance; ++i)
                         {
                             vertices.Add(vertex);
