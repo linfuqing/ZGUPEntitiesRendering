@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Entities.Serialization;
 using Unity.Mathematics;
 using Unity.Rendering;
 using UnityEngine;
@@ -165,6 +164,65 @@ namespace ZG
         }*/
 
         [Serializable]
+        public class NodeMap : Dictionary<NodeMap.Key, NodeMap.Value>, ISerializationCallbackReceiver
+        {
+            [Serializable]
+            public struct Key : IEquatable<Key>
+            {
+                public HybridRenderer renderer;
+                public Material material;
+
+                public bool Equals(Key other)
+                {
+                    return renderer == other.renderer && material == other.material;
+                }
+
+                public override int GetHashCode()
+                {
+                    return (renderer == null ? 0 : renderer.GetInstanceID()) ^ (material == null ? 0 : material.GetInstanceID());
+                }
+            }
+
+            [Serializable]
+            public struct Value
+            {
+                public int[] nodeIndices;
+
+                public void Push(int nodeIndex)
+                {
+                    int length = nodeIndices == null ? 0 : nodeIndices.Length;
+                    Array.Resize(ref nodeIndices, length + 1);
+                    nodeIndices[length] = nodeIndex;
+                }
+            }
+            
+            [SerializeField]
+            internal Key[] _keys;
+            [SerializeField]
+            internal Value[] _values;
+
+            void ISerializationCallbackReceiver.OnBeforeSerialize()
+            {
+                int count = Count;
+                
+                _keys = new Key[count];
+                Keys.CopyTo(_keys);
+                
+                _values = new Value[count];
+                Values.CopyTo(_values);
+            }
+
+            void ISerializationCallbackReceiver.OnAfterDeserialize()
+            {
+                Clear();
+
+                int count = Mathf.Min(_keys == null ? 0 : _keys.Length, _values == null ? 0 : _values.Length);
+                for (int i = 0; i < count; ++i)
+                    Add(_keys[i], _values[i]);
+            }
+        }
+
+        [Serializable]
         public struct Data
         {
 #if UNITY_EDITOR
@@ -177,6 +235,8 @@ namespace ZG
             public Node[] nodes;
 
             public Object[] objects;
+
+            public NodeMap nodeMap;
 
             //public LightMap[] lightMaps;
 
@@ -315,7 +375,7 @@ namespace ZG
                 }
             }
 
-            public static Object[] Create(LODGroup[] lodGroups, Node[] nodes, Dictionary<(HybridRenderer, Material), int[]> nodeIndices)
+            public static Object[] Create(LODGroup[] lodGroups, Node[] nodes, NodeMap nodeMap)
             {
                 int count = lodGroups == null ? 0 : lodGroups.Length;
                 if (count < 1)
@@ -332,11 +392,12 @@ namespace ZG
                 LOD lod;
                 Object result;
                 Transform transform;
+                NodeMap.Key key;
+                NodeMap.Value value;
                 List<Object> results = null;
                 UnityEngine.LOD[] lods;
                 HybridRenderer[] renderers;
                 Material[] materials;
-                int[] nodeIndexArray;
                 Dictionary<LODGroup, int> resultIndices = null;
                 foreach (var lodGroup in lodGroups)
                 {
@@ -372,7 +433,7 @@ namespace ZG
 
                     objectIndex = results.Count;
 
-                    if (nodeIndices != null)
+                    if (nodeMap != null)
                     {
                         //isInit = false;
                         for (i = 0; i < numLods; ++i)
@@ -397,10 +458,12 @@ namespace ZG
                                     materials = renderer.sharedMaterials;
                                     foreach (var material in materials)
                                     {
-                                        if (!nodeIndices.TryGetValue((renderer, material), out nodeIndexArray))
+                                        key.renderer = renderer;
+                                        key.material = material;
+                                        if (!nodeMap.TryGetValue(key, out value) || value.nodeIndices == null)
                                             continue;
 
-                                        foreach (int nodeIndex in nodeIndexArray)
+                                        foreach (int nodeIndex in value.nodeIndices)
                                         {
                                             ref var node = ref nodes[nodeIndex];
 
@@ -511,6 +574,9 @@ namespace ZG
                         lightMap.shadowMask = lightmap.shadowMask;
                     }
                 }*/
+                
+                if(nodeMap != null)
+                    nodeMap.Clear();
 
                 Instance instance;
                 instance.meshStreamingOffset = -1;
@@ -518,7 +584,7 @@ namespace ZG
 #if UNITY_EDITOR
                 int index = 0;
 #endif
-                int i, j, k, numMaterials, submeshIndex, nodeIndexArrayIndex, materialPropertyIndex, numMaterialProperties, numInstances;
+                int i, j, k, numMaterials, submeshIndex, materialPropertyIndex, numMaterialProperties, numInstances;
                 Type materialPropertyType;
                 MaterialProperty materialProperty;
                 ComponentTypeWrapper componentTypeWrapper;
@@ -531,7 +597,9 @@ namespace ZG
                 SkinnedMeshRenderer skinnedMeshRenderer;
                 Transform transform;
                 GameObject target;
-                int[] nodeIndexArray, typeIndices;
+                NodeMap.Key key;
+                NodeMap.Value value;
+                int[] typeIndices;
                 Material[] sharedMaterials;
                 MaterialOverride[] materialOverrides;
                 List<Instance> instances = null;
@@ -543,7 +611,6 @@ namespace ZG
                 Dictionary<MaterialProperty, int> materialPropertyIndices = null;
                 Dictionary<Type, int> materialPropertyTypeIndics = null;
                 Dictionary<Type, float[]> materialPropertyValues = null;
-                Dictionary<(HybridRenderer, Material), int[]> nodeIndices = null;
                 foreach (var hybridRenderer in hybridRenderers)
                 {
                     target = hybridRenderer == null ? null : hybridRenderer.gameObject;
@@ -628,12 +695,12 @@ namespace ZG
 
                             materialSource = sharedMaterials[i];
 
-                            foreach (var materailOverride in materialOverrides)
+                            foreach (var materialOverride in materialOverrides)
                             {
-                                if (materailOverride.overrideAsset == null || materailOverride.overrideAsset.material != materialSource || materailOverride.overrideList == null)
+                                if (materialOverride.overrideAsset == null || materialOverride.overrideAsset.material != materialSource || materialOverride.overrideList == null)
                                     continue;
 
-                                numMaterialProperties = materailOverride.overrideList.Count;
+                                numMaterialProperties = materialOverride.overrideList.Count;
 
                                 node.materialPropertyIndices = new int[numMaterialProperties];
 
@@ -641,7 +708,7 @@ namespace ZG
 
                                 for (j = 0; j < numMaterialProperties; ++j)
                                 {
-                                    var overrideData = materailOverride.overrideList[j];
+                                    var overrideData = materialOverride.overrideList[j];
                                     switch (overrideData.type)
                                     {
                                         case ShaderPropertyType.Int:
@@ -666,7 +733,7 @@ namespace ZG
                                     if (materialProperty.values == null)
                                         continue;
 
-                                    materialPropertyType = materailOverride.overrideAsset.GetTypeFromAttrs(overrideData);
+                                    materialPropertyType = materialOverride.overrideAsset.GetTypeFromAttrs(overrideData);
 
                                     if (materialPropertyTypeIndics == null)
                                         materialPropertyTypeIndics = new Dictionary<Type, int>();
@@ -877,18 +944,17 @@ namespace ZG
                                     {
                                         node.instance = instances[j];
 
-                                        if (nodeIndices == null)
-                                            nodeIndices = new Dictionary<(HybridRenderer, Material), int[]>();
+                                        if (nodeMap == null)
+                                            nodeMap = new NodeMap();
 
-                                        if (!nodeIndices.TryGetValue((hybridRenderer, materialSource), out nodeIndexArray))
-                                            nodeIndexArray = null;
+                                        key.renderer = hybridRenderer;
+                                        key.material = materialSource;
+                                        if (!nodeMap.TryGetValue(key, out value))
+                                            value = new NodeMap.Value();
 
-                                        nodeIndexArrayIndex = nodeIndexArray == null ? 0 : nodeIndexArray.Length;
-                                        Array.Resize(ref nodeIndexArray, nodeIndexArrayIndex + 1);
+                                        value.Push(nodes.Count);
 
-                                        nodeIndexArray[nodeIndexArrayIndex] = nodes.Count;
-
-                                        nodeIndices[(hybridRenderer, materialSource)] = nodeIndexArray;
+                                        nodeMap[key] = value;
 
                                         nodes.Add(node);
                                     }
@@ -925,7 +991,7 @@ namespace ZG
                     renderers[pair.Value] = pair.Key;
 
                 this.nodes = nodes == null ? null : nodes.ToArray();
-                objects = Create(lodGroups, this.nodes, nodeIndices);
+                objects = Create(lodGroups, this.nodes, nodeMap);
 
                 if (materialPropertyTypeIndics != null)
                 {
@@ -1087,6 +1153,21 @@ namespace ZG
                 return lodGroup;
             }
         }
+
+
+        public static int EntityStartIndexOf(int nodeIndex, Node[] nodes)
+        {
+            int entityStartIndex = 0;
+            LOD[] lods;
+            for (int i = 0; i < nodeIndex; ++i)
+            {
+                lods = nodes[i].lods;
+                entityStartIndex += Mathf.Max(1, lods == null ? 0 : lods.Length);
+            }
+
+            return entityStartIndex;
+        }
+
 
 #if UNITY_EDITOR
         [HideInInspector]

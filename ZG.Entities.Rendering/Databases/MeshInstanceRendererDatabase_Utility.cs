@@ -100,7 +100,7 @@ namespace ZG
                 rendererStartIndex += rendererCount;
             }
         }
-
+        
         private static float __ComputeSphere(Mesh mesh, int subMeshIndex, out Vector3 center)
         {
             var bounds = mesh.GetSubMesh(subMeshIndex).bounds;
