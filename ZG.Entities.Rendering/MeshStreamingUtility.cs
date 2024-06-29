@@ -103,7 +103,7 @@ namespace ZG
             }
         }
 
-        const int DEFAULT_SIZE = short.MaxValue;
+        const int DEFAULT_SIZE = 1024 * 1024;
         const string NAME_PREFIX = "_MeshStreaming";
 
         public static readonly string ShaderName = $"{NAME_PREFIX}{typeof(T).Name}Data";
