@@ -1245,6 +1245,11 @@ namespace ZG
                     prefabRendererCount = prefab.nodes.Length;
 
                     counter = (key.isStatic ? staticCounters : dynamicCounters)[keyValue.Value];
+                    
+                    #if DEBUG
+                    if(key.index < prefabRendererCount ? prefab.nodes.Length <= key.index : prefab.objects.Length <= key.index - prefabRendererCount)
+                        UnityEngine.Debug.LogError("WTF?");
+                    #endif
 
                     entityManager.Instantiate(
                         key.index < prefabRendererCount ? prefab.nodes[key.index] : prefab.objects[key.index - prefabRendererCount],

@@ -221,6 +221,8 @@ namespace ZG
             isResize = bufferCount < length;
             if (isResize)
             {
+                Debug.LogError($"Resize Graphics Buffer {bufferCount} : {length}");
+                
                 var values = new T[bufferCount];
                 __structBuffer.GetData(values);
 
