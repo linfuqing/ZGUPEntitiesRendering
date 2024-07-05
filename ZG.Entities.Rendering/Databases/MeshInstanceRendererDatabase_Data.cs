@@ -169,17 +169,19 @@ namespace ZG
             [Serializable]
             public struct Key : IEquatable<Key>
             {
-                public HybridRenderer renderer;
+                public string rendererPath;
                 public Material material;
+
+                public bool isVail => material != null;
 
                 public bool Equals(Key other)
                 {
-                    return renderer == other.renderer && material == other.material;
+                    return rendererPath == other.rendererPath && material == other.material;
                 }
 
                 public override int GetHashCode()
                 {
-                    return (renderer == null ? 0 : renderer.GetInstanceID()) ^ (material == null ? 0 : material.GetInstanceID());
+                    return (rendererPath == null ? 0 : rendererPath.GetHashCode()) ^ (material == null ? 0 : material.GetInstanceID());
                 }
             }
 
@@ -375,7 +377,7 @@ namespace ZG
                 }
             }
 
-            public static Object[] Create(LODGroup[] lodGroups, Node[] nodes, NodeMap nodeMap)
+            public static Object[] Create(Transform root, LODGroup[] lodGroups, Node[] nodes, NodeMap nodeMap)
             {
                 int count = lodGroups == null ? 0 : lodGroups.Length;
                 if (count < 1)
@@ -458,7 +460,7 @@ namespace ZG
                                     materials = renderer.sharedMaterials;
                                     foreach (var material in materials)
                                     {
-                                        key.renderer = renderer;
+                                        key.rendererPath = renderer.transform.GetPath(root);
                                         key.material = material;
                                         if (!nodeMap.TryGetValue(key, out value) || value.nodeIndices == null)
                                             continue;
@@ -540,6 +542,7 @@ namespace ZG
             }
 
             public void Create(
+                Transform root, 
                 HybridRenderer[] hybridRenderers,
                 LODGroup[] lodGroups,
                 MaterialPropertyOverride materialPropertyOverride,
@@ -947,7 +950,7 @@ namespace ZG
                                         if (nodeMap == null)
                                             nodeMap = new NodeMap();
 
-                                        key.renderer = hybridRenderer;
+                                        key.rendererPath = hybridRenderer.transform.GetPath(root);
                                         key.material = materialSource;
                                         if (!nodeMap.TryGetValue(key, out value))
                                             value = new NodeMap.Value();
@@ -991,7 +994,7 @@ namespace ZG
                     renderers[pair.Value] = pair.Key;
 
                 this.nodes = nodes == null ? null : nodes.ToArray();
-                objects = Create(lodGroups, this.nodes, nodeMap);
+                objects = Create(root, lodGroups, this.nodes, nodeMap);
 
                 if (materialPropertyTypeIndics != null)
                 {
@@ -1183,6 +1186,7 @@ namespace ZG
             var materials = new List<Material>();
             var meshes = new List<Mesh>();
             data.Create(
+                root, 
                 root.GetComponentsInChildren<HybridRenderer>(),
                 root.GetComponentsInChildren<LODGroup>(),
                 materialPropertySettings == null ? (MaterialPropertyOverride)null : materialPropertySettings.Override,
