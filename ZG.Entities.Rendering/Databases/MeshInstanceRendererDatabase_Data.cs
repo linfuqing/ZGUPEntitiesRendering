@@ -183,6 +183,11 @@ namespace ZG
                 {
                     return (rendererPath == null ? 0 : rendererPath.GetHashCode()) ^ (material == null ? 0 : material.GetInstanceID());
                 }
+
+                public override string ToString()
+                {
+                    return $"NodeMap.Key({rendererPath}, {material})";
+                }
             }
 
             [Serializable]
@@ -197,6 +202,9 @@ namespace ZG
                     nodeIndices[length] = nodeIndex;
                 }
             }
+
+            [SerializeField]
+            internal UnityEngine.Object _target;
             
             [SerializeField]
             internal Key[] _keys;
@@ -220,7 +228,11 @@ namespace ZG
 
                 int count = Mathf.Min(_keys == null ? 0 : _keys.Length, _values == null ? 0 : _values.Length);
                 for (int i = 0; i < count; ++i)
-                    Add(_keys[i], _values[i]);
+                {
+                    ref var key = ref _keys[i];
+                    if(!key.isVail || !TryAdd(key, _values[i]))
+                        Debug.LogError($"Error Key {key}", _target);
+                }
             }
         }
 
