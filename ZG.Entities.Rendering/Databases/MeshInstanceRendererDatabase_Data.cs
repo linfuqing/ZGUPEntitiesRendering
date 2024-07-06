@@ -602,8 +602,7 @@ namespace ZG
                     }
                 }*/
                 
-                if(nodeMap != null)
-                    nodeMap.Clear();
+                nodeMap = new NodeMap(parent);
 
                 Instance instance;
                 instance.meshStreamingOffset = -1;
@@ -1211,7 +1210,7 @@ namespace ZG
             var meshes = new List<Mesh>();
             data.Create(
                 this, 
-                root, 
+                root.root, 
                 root.GetComponentsInChildren<HybridRenderer>(),
                 root.GetComponentsInChildren<LODGroup>(),
                 materialPropertySettings == null ? (MaterialPropertyOverride)null : materialPropertySettings.Override,
