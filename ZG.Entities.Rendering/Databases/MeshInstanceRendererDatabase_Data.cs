@@ -223,6 +223,8 @@ namespace ZG
                 {
                     _keys[index] = pair.Key;
                     _values[index] = pair.Value;
+
+                    ++index;
                 }
             }
 
