@@ -211,6 +211,11 @@ namespace ZG
             [SerializeField]
             internal Value[] _values;
 
+            public NodeMap(UnityEngine.Object target)
+            {
+                _target = target;
+            }
+
             void ISerializationCallbackReceiver.OnBeforeSerialize()
             {
                 int count = Count;
@@ -560,6 +565,7 @@ namespace ZG
             }
 
             public void Create(
+                UnityEngine.Object parent, 
                 Transform root, 
                 HybridRenderer[] hybridRenderers,
                 LODGroup[] lodGroups,
@@ -966,7 +972,7 @@ namespace ZG
                                         node.instance = instances[j];
 
                                         if (nodeMap == null)
-                                            nodeMap = new NodeMap();
+                                            nodeMap = new NodeMap(parent);
 
                                         key.rendererPath = hybridRenderer.transform.GetPath(root);
                                         key.material = materialSource;
@@ -1204,6 +1210,7 @@ namespace ZG
             var materials = new List<Material>();
             var meshes = new List<Mesh>();
             data.Create(
+                this, 
                 root, 
                 root.GetComponentsInChildren<HybridRenderer>(),
                 root.GetComponentsInChildren<LODGroup>(),
