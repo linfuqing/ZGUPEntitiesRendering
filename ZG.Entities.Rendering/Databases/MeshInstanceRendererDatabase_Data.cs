@@ -216,10 +216,14 @@ namespace ZG
                 int count = Count;
                 
                 _keys = new Key[count];
-                Keys.CopyTo(_keys);
-                
                 _values = new Value[count];
-                Values.CopyTo(_values);
+
+                int index = 0;
+                foreach (var pair in this)
+                {
+                    _keys[index] = pair.Key;
+                    _values[index] = pair.Value;
+                }
             }
 
             void ISerializationCallbackReceiver.OnAfterDeserialize()
