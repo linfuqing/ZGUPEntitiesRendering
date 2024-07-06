@@ -186,7 +186,7 @@ namespace ZG
 
                 public override string ToString()
                 {
-                    return $"NodeMap.Key({rendererPath}, {material})";
+                    return $"NodeMap.Key({rendererPath})";
                 }
             }
 
