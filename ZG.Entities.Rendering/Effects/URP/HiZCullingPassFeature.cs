@@ -10,20 +10,30 @@ namespace ZG
 {
     public class HiZCullingPassFeature : ScriptableRendererFeature
     {
-        private struct RenderTextureWrapper : IHiZRenderTexture
+        private class RenderTextureWrapper : Object, IHiZRenderTexture
         {
             private RTHandle __value;
             private RenderTextureFactory __factory;
 
             public RTHandle value => __value;
 
-            public RenderTextureWrapper(int width, int height, RenderTextureFactory factory)
+            private readonly System.Action<AsyncGPUReadbackRequest> __callback;
+
+            public static RenderTextureWrapper Create(int width, int height, RenderTextureFactory factory)
             {
                 var descriptor = new RenderTextureDescriptor(width, height, RenderTextureFormat.RHalf, 0, 0);
                 descriptor.useMipMap = false;
 
-                __value = RTHandles.Alloc(descriptor);
-                __factory = factory;
+                var target = Object.Create<RenderTextureWrapper>();
+                target.__value = RTHandles.Alloc(descriptor);
+                target.__factory = factory;
+
+                return target;
+            }
+
+            public RenderTextureWrapper()
+            {
+                __callback = __ReadbackComplete;
             }
 
             public void Release()
@@ -31,13 +41,15 @@ namespace ZG
                 RTHandles.Release(__value);
 
                 __value = null;
+
+                Dispose();
             }
 
             public void Readback(ref NativeArray<half> output, CommandBuffer commandBuffer)
             {
                 ++__factory._readbackRequestCount;
 
-                commandBuffer.RequestAsyncReadbackIntoNativeArray(ref output, __value, __ReadbackComplete);
+                commandBuffer.RequestAsyncReadbackIntoNativeArray(ref output, __value, __callback);
             }
 
             private void __ReadbackComplete(AsyncGPUReadbackRequest request)
@@ -52,7 +64,7 @@ namespace ZG
 
             public bool isReadbackCompleted => _readbackRequestCount == 0;
 
-            public RenderTextureWrapper Create(int width, int height) => new RenderTextureWrapper(width, height, this);
+            public RenderTextureWrapper Create(int width, int height) => RenderTextureWrapper.Create(width, height, this);
         }
 
         private class CullingPass : ScriptableRenderPass, IHiZDepthGenerater<RenderTextureWrapper>, IHiZMipmapGenerater<RenderTextureWrapper>

@@ -64,7 +64,9 @@ namespace ZG
             for (int i = 0; i < 4; ++i)
                 aabb = Include(aabb, Conrners[i]);
 
-            return AABB.Transform(camera.transform.localToWorldMatrix, aabb);
+            aabb = AABB.Transform(camera.transform.localToWorldMatrix, aabb);
+
+            return aabb;
         }
 
         public FrustumPlanes(UnityEngine.Camera camera)

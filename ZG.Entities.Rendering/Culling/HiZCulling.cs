@@ -850,7 +850,7 @@ namespace ZG
                         source,
                         destination,
                         commandBuffer);
-
+                    
                     __parent.__map.ReadbackFrom(commandBuffer, ref source, i - 1);
 
                     source = destination;
